@@ -46,7 +46,7 @@ const insp = await inspecionarPdf(origem);
   writeFileSync('out/B-mapa.csv', mapaCsv(r));
   writeFileSync('out/B-miolo-imposto.pdf', await gerarPdfImposto(origem, e, r, { rotularBrancos: true }));
   if (r.capa.planificacao) {
-    writeFileSync('out/B-capa-planificada.pdf', await gerarPdfCapa(r.capa.planificacao, e, r, { origemBytes: origem, externa: { primeira: 0, quarta: 29 }, interna: { segunda: 1, terceira: 28 } }));
+    writeFileSync('out/B-capa-planificada.pdf', await gerarPdfCapa(r.capa.planificacao, e, r, { origemBytes: origem, externa: { primeira: { indice: 0 }, quarta: { indice: 29 } }, interna: { segunda: { indice: 1 }, terceira: { indice: 28 } } }));
   }
   console.log('B:', r.rotuloNivel, '| plano', r.plano.escolhido, '| formas', r.formas.map((f) => `${f.id}(${f.posicoes.length}pos)`).join(','), '| capa', r.capa.planificacao?.largura, '×', r.capa.planificacao?.altura);
 }

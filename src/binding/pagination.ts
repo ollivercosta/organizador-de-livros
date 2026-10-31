@@ -17,7 +17,7 @@ export interface PaginaRegistro {
   papel: PapelPagina;
   rotulo?: string;
   /** Página do arquivo de origem (0-based) — ausente em brancos inseridos. */
-  origem?: { arquivo: string; indice: number };
+  origem?: { arquivo: string; indice: number; recorte?: 'esquerda' | 'direita' };
   /** Obrigatório para brancos inseridos pelo sistema/usuário (RN-005). */
   motivo?: string;
   autor?: string;

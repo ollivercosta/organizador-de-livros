@@ -13,6 +13,7 @@ import type { ModeloId } from '../binding/models.js';
 import type { Valor } from '../core/evidence.js';
 import type { FoldScheme } from '../fold/schemes.js';
 import { REGISTRO, REGISTRO_POR_CHAVE, aplicavel, type ParamDef } from './registry.js';
+import { FOLHAS_REFERENCIA, FONTE_REFERENCIA, MAQUINAS_REFERENCIA, REFERENCIA_POR_MODELO, SELECAO_REFERENCIA } from './referencia.js';
 
 export const SCHEMA_PERFIL = 'plataforma-editorial/perfil-grafica@1';
 
@@ -161,6 +162,10 @@ export function resolverParametros(
   const fontePerfil = perfil ? `${perfil.grafica} — perfil v${perfil.versao} (${perfil.emitidoEm})` : '';
   const maquina = perfil?.maquinas.find((m) => m.id === selecao.maquinaId);
   const folha = perfil?.folhas.find((f) => f.id === selecao.folhaMioloId);
+  // Padrão de mercado: usado para o que a gráfica não informou.
+  const maqRef = maquina ? undefined : MAQUINAS_REFERENCIA.find((m) => m.id === (selecao.maquinaId ?? (perfil ? undefined : SELECAO_REFERENCIA.maquinaId)));
+  const folhaRef = folha ? undefined : FOLHAS_REFERENCIA.find((f) => f.id === (selecao.folhaMioloId ?? (perfil ? undefined : SELECAO_REFERENCIA.folhaMioloId)));
+  const refModelo = REFERENCIA_POR_MODELO[modelo] ?? {};
 
   // Ajustes: o mais recente de cada chave prevalece (histórico preservado no projeto).
   const ultimoAjuste = new Map<string, AjusteProjeto>();
@@ -184,8 +189,15 @@ export function resolverParametros(
       out.set(def.chave, { valor: v, origem: 'grafica', status: 'confirmado', fonte, data: perfil!.emitidoEm, unidade: def.unidade });
       continue;
     }
-    if (def.generico !== undefined) {
-      out.set(def.chave, { valor: def.generico, origem: 'generico', status: 'estimado', fonte: 'Valor genérico de referência da plataforma (não confirmado pela gráfica)', unidade: def.unidade });
+    let ref: ValorParam | undefined;
+    let fonteRef = FONTE_REFERENCIA;
+    if (folhaRef && def.chave === 'maquina.folha.largura') { ref = folhaRef.largura; fonteRef += ` · folha ${folhaRef.nome}`; }
+    else if (folhaRef && def.chave === 'maquina.folha.altura') { ref = folhaRef.altura; fonteRef += ` · folha ${folhaRef.nome}`; }
+    if (ref === undefined && maqRef && def.chave in maqRef.parametros) { ref = maqRef.parametros[def.chave]; fonteRef += ` · ${maqRef.nome}`; }
+    if (ref === undefined && def.chave in refModelo) ref = refModelo[def.chave];
+    if (ref === undefined) ref = def.referencia;
+    if (ref !== undefined) {
+      out.set(def.chave, { valor: ref, origem: 'referencia', status: 'estimado', fonte: fonteRef, unidade: def.unidade });
       continue;
     }
     out.set(def.chave, { valor: null, origem: 'ausente', status: 'pendente', fonte: 'Não informado', unidade: def.unidade });
@@ -217,16 +229,16 @@ export function lista(r: Resolvidos, k: string): Valor<number[]> {
 }
 
 /** Nível da saída de produção, a partir da origem dos parâmetros críticos aplicáveis. */
-export type NivelSaida = 'bloqueado' | 'previa_generica' | 'validado_parametros';
-export function nivelPorParametros(r: Resolvidos, modelo: ModeloId, chavesUsadas?: ReadonlySet<string>): { nivel: NivelSaida; pendentes: string[]; genericos: string[] } {
+export type NivelSaida = 'bloqueado' | 'padrao_mercado' | 'validado_parametros';
+export function nivelPorParametros(r: Resolvidos, modelo: ModeloId, chavesUsadas?: ReadonlySet<string>): { nivel: NivelSaida; pendentes: string[]; referencia: string[] } {
   const pendentes: string[] = [];
-  const genericos: string[] = [];
+  const referencia: string[] = [];
   for (const def of REGISTRO) {
     if (!def.critico || !aplicavel(def, modelo)) continue;
     if (chavesUsadas && !chavesUsadas.has(def.chave)) continue;
     const v = r.get(def.chave);
     if (!v || v.status === 'pendente') pendentes.push(def.chave);
-    else if (v.origem === 'generico') genericos.push(def.chave);
+    else if (v.origem === 'referencia') referencia.push(def.chave);
   }
-  return { nivel: pendentes.length ? 'bloqueado' : genericos.length ? 'previa_generica' : 'validado_parametros', pendentes, genericos };
+  return { nivel: pendentes.length ? 'bloqueado' : referencia.length ? 'padrao_mercado' : 'validado_parametros', pendentes, referencia };
 }

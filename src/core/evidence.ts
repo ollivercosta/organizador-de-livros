@@ -8,8 +8,8 @@ export type Origem =
   | 'projeto'
   /** Perfil técnico enviado pela gráfica e importado na área de configuração. */
   | 'grafica'
-  /** Valor de referência genérico da plataforma — permite prévia, nunca produção validada. */
-  | 'generico'
+  /** Padrão de mercado da plataforma — permite preparar e exportar, rotulado "confirmar com a gráfica". */
+  | 'referencia'
   /** Derivado por fórmula a partir de outros valores. */
   | 'calculado'
   /** Não informado. */

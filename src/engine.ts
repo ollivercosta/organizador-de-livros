@@ -16,6 +16,8 @@ import {
   type AjusteProjeto, type NivelSaida, type PerfilGrafica, type Resolvidos, type SelecaoPerfil, type ValorParam,
 } from './config/profile.js';
 import { REGISTRO } from './config/registry.js';
+import { avaliarEditorial, type DadosEditoriais, type ResultadoEditorial } from './editorial/normas.js';
+import { FOLHAS_REFERENCIA, FONTE_REFERENCIA, PAPEIS_REFERENCIA, SELECAO_REFERENCIA } from './config/referencia.js';
 import { arred, type Valor } from './core/evidence.js';
 import type { Edge } from './core/geometry.js';
 import { canonico, sha256 } from './core/hash.js';
@@ -60,6 +62,8 @@ export interface EntradaProjeto {
   perfil: PerfilGrafica | null;
   selecao: SelecaoPerfil;
   ajustes: AjusteProjeto[];
+  /** Identificador, código de barras e estrutura editorial (ISBN, NBR 6029). */
+  editorial?: DadosEditoriais;
 }
 
 export interface ItemMapa {
@@ -108,25 +112,28 @@ export interface ResultadoMotor {
   };
   capa: { planificacao: Planificacao | null; capaDura: ResultadoCapaDura | null; sobrecapa: Planificacao | null; folhasDeCapa: number };
   consumo: { miolo: Consumo | null; capa: Consumo | null };
+  editorial: ResultadoEditorial;
   constatacoes: Constatacao[];
   nivel: NivelSaida;
   rotuloNivel: string;
-  parametrosCriticos: { pendentes: string[]; genericos: string[] };
+  parametrosCriticos: { pendentes: string[]; referencia: string[] };
 }
 
 export const ROTULO_NIVEL: Record<NivelSaida, string> = {
   bloqueado: 'Bloqueado para produção — há pendências ou erros',
-  previa_generica: 'Prévia genérica — parâmetros críticos com valores de referência',
+  padrao_mercado: 'Pronto pelo padrão de mercado — confirme os parâmetros com a gráfica antes de imprimir',
   validado_parametros: 'Validado para os parâmetros informados (não substitui a aprovação da gráfica)',
 };
 
 function materialDoPerfil(perfil: PerfilGrafica | null, id: string | undefined): Material | undefined {
-  const p = perfil?.papeis.find((x) => x.id === id);
-  if (!p || !perfil) return undefined;
-  const fonte = `${perfil.grafica} v${perfil.versao}${p.fonte ? ` · ${p.fonte}` : ''}`;
+  const pg = perfil?.papeis.find((x) => x.id === id);
+  const pr = pg ? undefined : PAPEIS_REFERENCIA.find((x) => x.id === id);
+  const p = pg ?? pr;
+  if (!p) return undefined;
+  const fonte = pg ? `${perfil!.grafica} v${perfil!.versao}${p.fonte ? ` · ${p.fonte}` : ''}` : `${FONTE_REFERENCIA} · ${p.fonte ?? ''}`;
   const conf = <T>(v: T | undefined): Valor<T> => (v === undefined || v === null || (v as unknown) === 0)
     ? { valor: null, origem: 'ausente', status: 'pendente' }
-    : { valor: v, origem: 'grafica', status: 'confirmado', fonte, data: p.verificadoEm };
+    : pg ? { valor: v, origem: 'grafica', status: 'confirmado', fonte, data: p.verificadoEm } : { valor: v, origem: 'referencia', status: 'estimado', fonte };
   return { id: p.id, nome: p.nome, gramatura: conf(p.gramatura), calibreUm: conf(p.calibreUm), bulk: conf(p.bulk) };
 }
 
@@ -369,7 +376,7 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
   // Formas da capa (para consumo): planificação como uma "folha" única com face externa e interna.
   let formasCapa: Forma[] = [];
   if (planificacao && largFolha && altFolha && planificacao.pendencias.length === 0) {
-    const folhaCapa = e.perfil?.folhas.find((f) => f.id === e.selecao.folhaCapaId);
+    const folhaCapa = e.perfil?.folhas.find((f) => f.id === e.selecao.folhaCapaId) ?? FOLHAS_REFERENCIA.find((f) => f.id === (e.selecao.folhaCapaId ?? (e.perfil ? undefined : SELECAO_REFERENCIA.folhaCapaId)));
     const layoutCapa: SignatureLayout = {
       esquema: { id: 'CAPA', nome: planificacao.componente, cols: 1, rows: 1, folds: [], familia: 'folha_solta' },
       paginas: 2, cols: 1, rows: 1, bordaEncadernacao: 'left', celulaGirada: false, codiceValido: true,
@@ -390,17 +397,41 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
   // ---------------- Arquivo de origem ----------------
   if (e.dimensoesOrigem) {
     const diverg: string[] = []; const semSangria: string[] = [];
-    const idxMiolo = new Set(miolo.filter((p) => p.origem).map((p) => p.origem!.indice));
-    for (const d of e.dimensoesOrigem) {
-      if (!idxMiolo.has(d.indice)) continue;
-      if (Math.abs(d.larguraMm - W) > 0.5 || Math.abs(d.alturaMm - H) > 0.5) diverg.push(`p.${d.indice + 1} (${arred(d.larguraMm, 1)}×${arred(d.alturaMm, 1)})`);
-      if (s > 0 && (d.sangriaMm ?? 0) + 0.01 < s) semSangria.push(`p.${d.indice + 1}`);
+    const porIndice = new Map(e.dimensoesOrigem.map((d) => [d.indice, d]));
+    for (const p of miolo) {
+      if (!p.origem) continue;
+      const d = porIndice.get(p.origem.indice);
+      if (!d) continue;
+      // Página dupla dividida: cada metade tem metade da largura de corte.
+      const larg = p.origem.recorte ? d.larguraMm / 2 : d.larguraMm;
+      const nome = `p.${p.origem.indice + 1}${p.origem.recorte ? (p.origem.recorte === 'esquerda' ? 'E' : 'D') : ''}`;
+      if (Math.abs(larg - W) > 0.5 || Math.abs(d.alturaMm - H) > 0.5) diverg.push(`${nome} (${arred(larg, 1)}×${arred(d.alturaMm, 1)})`);
+      if (s > 0 && (d.sangriaMm ?? 0) + 0.01 < s) semSangria.push(nome);
     }
     if (diverg.length) c.push({ codigo: 'ARQ-001', severidade: 'erro', mensagem: `Páginas com formato de corte diferente de ${W}×${H} mm.`, evidencia: diverg.slice(0, 30).join(', ') + (diverg.length > 30 ? '…' : '') });
     if (semSangria.length) c.push({ codigo: 'ARQ-002', severidade: 'aviso', mensagem: `Páginas sem sangria de ${s} mm (BleedBox ausente ou menor).`, evidencia: semSangria.slice(0, 30).join(', ') + (semSangria.length > 30 ? '…' : '') });
   } else {
     c.push({ codigo: 'ARQ-003', severidade: 'nao_verificavel', mensagem: 'Dimensões do arquivo de origem não verificadas (nenhum PDF importado).' });
   }
+
+  // ---------------- Editorial (ISBN, código de barras, NBR 6029/12225) ----------------
+  let quarta: Parameters<typeof avaliarEditorial>[3] = null;
+  if (planificacao) {
+    const p4 = planificacao.paineis.find((p) => p.nome.includes('4ª capa'));
+    const lomb = planificacao.paineis.find((p) => p.tipo === 'lombada');
+    if (p4) {
+      const lombadaADireita = lomb ? p4.x < lomb.x : !rtl;
+      const vinco = ['brochura_hotmelt', 'brochura_pur', 'brochura_costurada'].includes(e.modelo) ? (num(R, 'acabamento.vincoDobradica').valor ?? 0) : 0;
+      quarta = { alvo: 'planificacao', x0: p4.x, largura: p4.largura, altura: planificacao.altura, lombadaADireita, folgaLombada: vinco };
+    }
+  } else if (e.capa.modelo === 'autocapa' && N >= 4) {
+    quarta = { alvo: 'pagina_miolo', pagina: N, x0: 0, largura: W, altura: H, lombadaADireita: !rtl, folgaLombada: 0 };
+  } else if (e.capa.modelo === 'folhas_de_capa') {
+    quarta = { alvo: 'folha_capa', x0: 0, largura: W, altura: H, lombadaADireita: !rtl, folgaLombada: modelo.furacao ? (num(R, 'acabamento.furacao.margem').valor ?? 0) : 0 };
+  }
+  const editorial = avaliarEditorial(e.editorial, e.modelo, N, e.encadernacaoSuperior ? null : quarta,
+    num(R, 'arquivo.margemSeguranca').valor ?? 5, lombada?.valor ?? null);
+  c.push(...editorial.constatacoes);
 
   // ---------------- Consumo ----------------
   const tiragem: Valor<number> = e.tiragem ? { valor: e.tiragem, origem: 'projeto', status: 'informado' } : { valor: null, origem: 'ausente', status: 'pendente' };
@@ -452,7 +483,7 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
   // ---------------- Nível ----------------
   const crit = nivelPorParametros(R, e.modelo, chavesUsadas);
   if (crit.pendentes.length) c.push({ codigo: 'CFG-001', severidade: 'pendencia', mensagem: 'Parâmetros críticos sem valor (gráfica ou ajuste do projeto).', evidencia: crit.pendentes.map(rotuloChave).join('; ') });
-  if (crit.genericos.length) c.push({ codigo: 'CFG-002', severidade: 'aviso', mensagem: 'Parâmetros críticos usando valor genérico de referência — saída apenas como prévia.', evidencia: crit.genericos.map(rotuloChave).join('; ') });
+  if (crit.referencia.length) c.push({ codigo: 'CFG-002', severidade: 'aviso', mensagem: 'Parâmetros críticos pelo padrão de mercado (sem confirmação da gráfica). Os arquivos saem marcados para conferência.', evidencia: crit.referencia.map(rotuloChave).join('; ') });
   const temErro = c.some((x) => x.severidade === 'erro');
   const temPend = c.some((x) => x.severidade === 'pendencia');
   let nivel: NivelSaida = crit.nivel;
@@ -471,10 +502,11 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
     fisica: { calibreMiolo: calMiolo, calibreCapa: calCapa, espessuraBloco: bloco, lombada, creepPorFolha: creep.status, creepMaximo },
     capa: { planificacao, capaDura: rCapaDura, sobrecapa: plSobrecapa, folhasDeCapa },
     consumo: { miolo: consumoMiolo, capa: consumoCapa },
+    editorial,
     constatacoes: ordenarConstatacoes(c),
     nivel,
     rotuloNivel: ROTULO_NIVEL[nivel],
-    parametrosCriticos: { pendentes: crit.pendentes, genericos: crit.genericos },
+    parametrosCriticos: { pendentes: crit.pendentes, referencia: crit.referencia },
   };
 }
 

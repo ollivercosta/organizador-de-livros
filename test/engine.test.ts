@@ -13,7 +13,7 @@ const AGORA = '2026-10-31T12:00:00.000Z';
 
 describe('física', () => {
   it('calibre por bulk: 115 g/m² × 0,85 cm³/g = 97,75 µm (estimado se o bulk for estimado)', () => {
-    const c = calibreMm({ id: 'x', nome: 'x', gramatura: conf(115), calibreUm: { valor: null, origem: 'ausente', status: 'pendente' }, bulk: { valor: 0.85, origem: 'generico', status: 'estimado' } });
+    const c = calibreMm({ id: 'x', nome: 'x', gramatura: conf(115), calibreUm: { valor: null, origem: 'ausente', status: 'pendente' }, bulk: { valor: 0.85, origem: 'referencia', status: 'estimado' } });
     expect(c.valor).toBeCloseTo(0.09775, 6);
     expect(c.status).toBe('estimado');
   });
@@ -73,8 +73,11 @@ describe('capas', () => {
 describe('área de configuração da gráfica', () => {
   it('precedência: ajuste do projeto > perfil da gráfica > genérico > pendente', () => {
     const r0 = resolverParametros('grampo_canoa', null, {}, []);
-    expect(r0.get('arquivo.sangria')!.origem).toBe('generico');
-    expect(r0.get('maquina.folha.largura')!.status).toBe('pendente');
+    expect(r0.get('arquivo.sangria')!.origem).toBe('referencia');
+    // sem perfil, a folha padrão de mercado (66×96, formato BB) é usada e rotulada como referência
+    expect(r0.get('maquina.folha.largura')!).toMatchObject({ valor: 960, origem: 'referencia', status: 'estimado' });
+    // com perfil sem folha selecionada, nada é presumido
+    expect(resolverParametros('grampo_canoa', PERFIL_TESTE, {}, []).get('maquina.folha.largura')!.status).toBe('pendente');
     const r1 = resolverParametros('grampo_canoa', PERFIL_TESTE, { maquinaId: 'of-4c', folhaMioloId: '66x96' }, []);
     expect(r1.get('maquina.folha.largura')!).toMatchObject({ valor: 960, origem: 'grafica', status: 'confirmado' });
     expect(r1.get('maquina.pinca')!.valor).toBe(12);
@@ -135,14 +138,21 @@ describe('motor — livro infantil (seção 20 do documento)', () => {
     expect(r.componentes.miolo.length).toBe(26);
     expect(r.constatacoes.find((c) => c.codigo === 'PAG-001')!.opcoes![0]).toMatch(/16 \+ 8 \+ 4 = 28 pp/);
   });
-  it('sem perfil da gráfica: prévia lógica apenas, formato da folha pendente, nunca "validado"', () => {
-    const r = executarMotor(livroInfantil({ paginas: comBrancos(2), perfil: null, selecao: {} }), AGORA);
-    expect(r.unidades.length).toBe(1);
+  it('sem perfil da gráfica: padrão de mercado completo por modelo, nunca "validado"', () => {
+    const r = executarMotor(livroInfantil({ paginas: comBrancos(2), perfil: null, selecao: { papelMioloId: 'ref-couche-f-115' } }), AGORA);
+    expect(r.formas.length).toBeGreaterThan(0);
+    expect(r.nivel).toBe('padrao_mercado');
+    expect(r.fisica.calibreMiolo).toMatchObject({ valor: 0.105, origem: 'referencia' });
+    expect(r.constatacoes.some((c) => c.codigo === 'CFG-002')).toBe(true);
+  });
+  it('perfil da gráfica sem folha selecionada: imposição lógica apenas', () => {
+    const r = executarMotor(livroInfantil({ paginas: comBrancos(2), selecao: {} }), AGORA);
+    expect(r.unidades.length).toBe(1); // sem folha não há filtro de encaixe: 1 caderno de 32 pp
     expect(r.formas.length).toBe(0);
     expect(r.nivel).toBe('bloqueado');
     expect(r.constatacoes.some((c) => c.codigo === 'MAQ-000')).toBe(true);
   });
-  it('com folha informada manualmente mas sem perfil: prévia genérica', () => {
+  it('com folha informada manualmente mas sem perfil: padrão de mercado nos demais', () => {
     const r = executarMotor(livroInfantil({
       paginas: comBrancos(2), perfil: null, selecao: {},
       papeis: { miolo: { id: 'm', nome: 'couchê', gramatura: { valor: 115, origem: 'projeto', status: 'informado' }, calibreUm: { valor: 98, origem: 'projeto', status: 'informado' } } },
@@ -152,8 +162,8 @@ describe('motor — livro infantil (seção 20 do documento)', () => {
       ],
     }), AGORA);
     expect(r.formas.length).toBeGreaterThan(0);
-    expect(r.nivel).toBe('previa_generica');
-    expect(r.parametrosCriticos.genericos).toContain('arquivo.sangria');
+    expect(r.nivel).toBe('padrao_mercado');
+    expect(r.parametrosCriticos.referencia).toContain('arquivo.sangria');
   });
   it('reprodutibilidade: mesma entrada → mesmo hash e mesmo mapa (RNF-002)', () => {
     const a = executarMotor(livroInfantil({ paginas: comBrancos(2) }), AGORA);

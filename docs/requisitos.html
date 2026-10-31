@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Plataforma de Produção Editorial e Gráfica — Requisitos v0.2</title>
+<title>Plataforma de Produção Editorial e Gráfica — Requisitos v0.3</title>
 <style>
 :root { --bg:#f2f3f1; --fg:#15181b; --mut:#59616a; --line:#d4d8db; --ac:#0b6a8c; --acl:#dcedf3; --ok:#2c7a4b; --warn:#9a6200; --err:#b0261d; }
 @media (prefers-color-scheme: dark) { :root { --bg:#121518; --fg:#e6e9eb; --mut:#9aa4ad; --line:#30363c; --ac:#5fb7d6; --acl:#17323d; --ok:#6cc592; --warn:#e2b155; --err:#f08a80; color-scheme: dark; } }
@@ -24,16 +24,25 @@ pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radiu
 </head>
 <body>
 <main>
-<p class="mut mono">Documento de produto · v0.2 · 31/10/2026 · substitui a v0.1</p>
+<p class="mut mono">Documento de produto · v0.3 · 31/10/2026 · substitui a v0.2</p>
 <h1>Plataforma de Produção Editorial e Gráfica</h1>
 <p>Sistema para preparar, organizar, visualizar, validar e gerar os arquivos finais de produtos editoriais para a gráfica. Cobre todos os modelos de encadernação de códice, além de sanfona e folhas soltas, com um motor de imposição genérico, uma área de configuração alimentada pela gráfica e a rastreabilidade de cada valor usado.</p>
 <div class="box"><strong>Princípio central (mantido).</strong> O usuário informa o produto e fornece as páginas na ordem de leitura. O sistema calcula a estrutura, mostra a relação entre as páginas, apresenta uma prévia e gera os arquivos técnicos. Um valor estimado nunca é apresentado como confirmado pela gráfica. <strong>Novo na v0.2:</strong> os dados da gráfica entram por um perfil técnico importado e por ajustes manuais registrados no projeto.</div>
 
 <nav><h3>Sumário</h3><ol>
-<li><a href="#mudancas">Mudanças em relação à v0.1</a></li><li><a href="#escopo">Objetivos e escopo</a></li><li><a href="#modelos">Modelos cobertos</a></li><li><a href="#jornada">Jornada do usuário</a></li><li><a href="#config">Área de configuração da gráfica</a></li><li><a href="#motor">Motor de imposição</a></li><li><a href="#matematica">Matemática de referência</a></li><li><a href="#maquina">Layout de máquina</a></li><li><a href="#capa">Capas e componentes</a></li><li><a href="#visual">Visualização</a></li><li><a href="#saida">Arquivos de saída e níveis</a></li><li><a href="#arquitetura">Arquitetura</a></li><li><a href="#dados">Modelo de dados</a></li><li><a href="#regras">Regras de negócio</a></li><li><a href="#rf">Requisitos funcionais</a></li><li><a href="#testes">Validação e testes</a></li><li><a href="#riscos">Riscos</a></li><li><a href="#pendentes">Decisões pendentes</a></li><li><a href="#exemplo">Livro infantil de referência</a></li><li><a href="#glossario">Glossário</a></li>
+<li><a href="#mudancas">Mudanças em relação à v0.1</a></li><li><a href="#escopo">Objetivos e escopo</a></li><li><a href="#modelos">Modelos cobertos</a></li><li><a href="#jornada">Jornada do usuário</a></li><li><a href="#config">Área de configuração da gráfica</a></li><li><a href="#normas">Normas editoriais e ISBN</a></li><li><a href="#importacao">Envio do arquivo</a></li><li><a href="#motor">Motor de imposição</a></li><li><a href="#matematica">Matemática de referência</a></li><li><a href="#maquina">Layout de máquina</a></li><li><a href="#capa">Capas e componentes</a></li><li><a href="#visual">Visualização</a></li><li><a href="#saida">Arquivos de saída e níveis</a></li><li><a href="#arquitetura">Arquitetura</a></li><li><a href="#dados">Modelo de dados</a></li><li><a href="#regras">Regras de negócio</a></li><li><a href="#rf">Requisitos funcionais</a></li><li><a href="#testes">Validação e testes</a></li><li><a href="#riscos">Riscos</a></li><li><a href="#pendentes">Decisões pendentes</a></li><li><a href="#exemplo">Livro infantil de referência</a></li><li><a href="#glossario">Glossário</a></li>
 </ol></nav>
 
-<h2 id="mudancas">1. Mudanças em relação à v0.1</h2>
+<h2 id="mudancas">1. Mudanças</h2>
+<h3>v0.3</h3>
+<ul>
+<li><strong>Padrão de mercado por modelo</strong> substitui os valores genéricos: folhas brasileiras (BB 66×96, AA 76×112, frações, SRA3), máquina offset e digital de referência, catálogo de papéis com espessura típica e parâmetros de acabamento por modelo. O projeto funciona sem gráfica; a saída é marcada “padrão de mercado — confirmar com a gráfica”.</li>
+<li><strong>Normas editoriais:</strong> ISBN/ISSN/ISMN com dígito verificador, código EAN-13 (GS1) vetorial com posição na 4ª capa, folha de rosto e créditos (ABNT NBR 6029), capítulos em página ímpar, lombada (ABNT NBR 12225), lembretes de ficha catalográfica e depósito legal.</li>
+<li><strong>Envio do arquivo:</strong> um PDF na ordem de leitura; páginas duplas e livretos já impostos são reconhecidos e convertidos.</li>
+<li><strong>Novo arquivo de saída:</strong> PDF do miolo em ordem de leitura com sangria e marcas (o formato que a maioria das gráficas pede).</li>
+<li><strong>Visualização:</strong> virada de página animada, sem redesenho da tela; vista “Como as folhas se juntam” (pares de impressão); legenda na imposição; pdf.js embutido com worker próprio (sem travamentos em arquivos grandes); página completa para abrir fora do Claude e no GitHub Pages.</li>
+</ul>
+<h3>v0.2 (em relação à v0.1)</h3>
 <div class="wrap"><table><thead><tr><th>#</th><th>Ponto da v0.1</th><th>Correção na v0.2</th></tr></thead><tbody>
 <tr><td>1</td><td>Escopo restrito ao grampo canoa.</td><td>13 modelos, reduzidos a 4 padrões de montagem (aninhada, alçada, folhas soltas, sanfona) e esquemas de dobra configuráveis. <span class="tag corr">corrigido</span></td></tr>
 <tr><td>2</td><td>O modo leitura do protótipo mostrava as duplas 1|2, 3|4 (frente e verso da mesma folha lado a lado), sempre com “de 16” fixo.</td><td>Duplas corretas: 1 sozinha à direita, depois 2|3 … 30|31, e 32 sozinha. São 17 vistas para 32 páginas. Leitura da direita para a esquerda (RTL) espelhada e encadernação superior suportadas. <span class="tag corr">corrigido</span></td></tr>
@@ -112,6 +121,31 @@ pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radiu
 <p>Arquivo (sangria, área de marcas, PDF/X, perfil de saída, resolução, margem de segurança, colação) · Máquina (folha, fibra, borda e medida da pinça, cauda, laterais, modo de impressão, virada do verso, posições, rotação da forma, cores) · Cadernos e dobra (tamanhos aceitos, esquema por tamanho, distribuição na folha) · Acabamento (fresagem, acréscimo e regra da lombada, vinco de dobradiça, redução de painel com orelha, limites da canoa, furação, sobrecapa) · Capa dura (papelão, esquadro, canal, dobra do revestimento, folga e recuo) · Creep (ativo, fator) · Consumo (perda, acerto). Somente os parâmetros aplicáveis ao modelo escolhido aparecem.</p>
 <p>A gráfica também pode enviar <strong>esquemas de dobra próprios</strong> (grade + sequência de dobras). Eles são simulados e verificados como os do catálogo.</p>
 
+<h3>5.4 Padrão de mercado</h3>
+<p>Sem perfil da gráfica, cada parâmetro sem valor recebe o padrão de mercado do modelo (origem “Padrão de mercado”, status estimado). Exemplos: sangria 3 mm; margem de segurança 5 mm; pinça 12 mm; folha 66×96 (BB); PDF/X-1a; cadernos de 32/16/8/4 (canoa) ou 32/16/8 (costura, PUR, capa dura); fresagem 3 mm; acréscimo de lombada 0,5 mm; vinco de dobradiça 6 mm (PUR/costurada); papelão 2,5 mm, esquadro 3 mm, canal 7 mm, dobra 15 mm (capa dura); furação 10–12 mm (wire-o/espiral). Espessuras de papel típicas, com variação real de ±10%. Nível de saída: <em>Pronto pelo padrão de mercado — confirme com a gráfica</em>.</p>
+
+<h2 id="normas">5A. Normas editoriais e ISBN</h2>
+<div class="wrap"><table><thead><tr><th>Item</th><th>Regra aplicada</th><th>Referência</th></tr></thead><tbody>
+<tr><td>ISBN</td><td>Obrigatório no livro, com ficha catalográfica. ISBN-13 (978/979); ISBN-10 convertido. Cada formato e cada nova edição com alteração exigem ISBN próprio.</td><td>ISO 2108; Lei 10.753/2003, art. 6º</td></tr>
+<tr><td>ISSN / ISMN</td><td>Periódicos: EAN 977 + ISSN + edição (complemento 2 dígitos). Partituras: 979-0.</td><td>ISO 3297; ISO 10957</td></tr>
+<tr><td>Código de barras</td><td>EAN-13; módulo 0,33 mm; ampliação 80–200%; margens de silêncio 11/7 módulos; preto sobre fundo claro; na 4ª capa, com margem de segurança e folga do vinco/lombada. Exportado em PDF e SVG, ou desenhado na capa.</td><td>GS1</td></tr>
+<tr><td>Folha de rosto e créditos</td><td>Folha de rosto em página ímpar; créditos, ISBN e ficha no verso.</td><td>ABNT NBR 6029</td></tr>
+<tr><td>Capítulos</td><td>Início em página ímpar (aviso).</td><td>Convenção editorial</td></tr>
+<tr><td>Lombada</td><td>Texto longitudinal, de cima para baixo; abaixo de ~5 mm, avaliar lombada sem texto.</td><td>ABNT NBR 12225</td></tr>
+<tr><td>Ficha catalográfica e depósito legal</td><td>Lembretes (não verificáveis): ficha por bibliotecário com CRB; depósito na Biblioteca Nacional.</td><td>Lei 10.994/2004</td></tr>
+<tr><td>Verificação no arquivo</td><td>O identificador é procurado no texto da página de créditos e da 4ª capa.</td><td>—</td></tr>
+</tbody></table></div>
+<p>A hifenização do ISBN depende das faixas da agência; a plataforma valida os dígitos e usa a forma hifenizada informada pelo usuário.</p>
+
+<h2 id="importacao">5B. Envio do arquivo</h2>
+<ul>
+<li>Formato recomendado: <strong>um único PDF com o livro inteiro, na ordem de leitura</strong>, páginas simples, com sangria (PDF/X). Não é preciso enviar página por página nem organizar os pares.</li>
+<li><strong>Páginas duplas</strong> (1 · 2|3 · 4|5…): detectadas pela largura (2× o formato) e divididas ao meio.</li>
+<li><strong>Livreto já imposto</strong> (32|1 · 2|31 · 30|3…, “imprimir livreto”): a imposição é desfeita (folha j: fora = N−2j | 1+2j; dentro = 2+2j | N−1−2j).</li>
+<li>Formato divergente do projeto: a plataforma oferece adotar o formato do arquivo.</li>
+<li>Substituir o PDF pelo mesmo número de páginas preserva os brancos aprovados.</li>
+</ul>
+
 <h2 id="motor">6. Motor de imposição</h2>
 <h3>6.1 Simulação de dobra (núcleo)</h3>
 <p>A folha plana é uma grade de células. Cada célula é uma folha do livro (2 páginas), com face F (frente) e B (verso). Cada dobra reflete a parte móvel sobre a linha de dobra, inverte a ordem das camadas e a coloca por cima ou por baixo. A orientação é acumulada em matrizes inteiras 2×2 (grupo diedral), sem ponto flutuante na topologia. Ao final:</p>
@@ -162,7 +196,8 @@ sanfona:          frente 1..n ; verso n+1..2n (lido após virar)</pre>
 
 <h2 id="visual">10. Visualização</h2>
 <ul>
-<li><strong>Leitura:</strong> duplas corretas, navegação por botões e teclado, faixa com todas as faces, miniaturas reais do PDF e brancos identificados.</li>
+<li><strong>Leitura:</strong> duplas corretas, virada de página animada (respeita “reduzir movimento”), teclado e gesto de arrastar, faixa com todas as faces, miniaturas reais do PDF e brancos identificados.</li>
+<li><strong>Como as folhas se juntam:</strong> para cada folha dobrada, as páginas do lado de fora e de dentro (32|1, 2|31…), a soma constante e um corte ilustrado do livro.</li>
 <li><strong>Imposição:</strong> folha em escala com pinça, área imprimível, sangria, corte, número e cabeça da página, rotação e marcas. Inclui a vista lógica dos cadernos (frente e verso).</li>
 <li><strong>Sincronização (RF-013):</strong> selecionar uma página na leitura, na paginação ou na folha leva à mesma página nas outras vistas.</li>
 <li><strong>Capa:</strong> planificação com painéis, medidas, dobras e vincos.</li>
@@ -171,10 +206,10 @@ sanfona:          frente 1..n ; verso n+1..2n (lido após virar)</pre>
 <h2 id="saida">11. Arquivos de saída e níveis</h2>
 <div class="wrap"><table><thead><tr><th>Nível</th><th>Condição</th><th>Marcação nos arquivos</th></tr></thead><tbody>
 <tr><td>Bloqueado</td><td>Erro ou pendência (paginação, parâmetro crítico ausente, forma que não cabe…).</td><td>PDF de produção indisponível.</td></tr>
-<tr><td>Prévia genérica</td><td>Algum parâmetro crítico vem de valor genérico.</td><td>“PRÉVIA — NÃO VALIDADO PARA PRODUÇÃO” em cada folha.</td></tr>
+<tr><td>Padrão de mercado</td><td>Algum parâmetro crítico vem do padrão de mercado.</td><td>“PADRÃO DE MERCADO — CONFIRMAR PARÂMETROS COM A GRÁFICA” fora da área de corte.</td></tr>
 <tr><td>Validado para os parâmetros informados</td><td>Todos os críticos confirmados (gráfica) ou informados (projeto), sem erros.</td><td>Faixa com versão, regra e hash; não substitui a aprovação da gráfica.</td></tr>
 </tbody></table></div>
-<p>Arquivos: miolo imposto (PDF vetorial, alinhado pela TrimBox), capa planificada (PDF), ficha técnica (TXT), mapa de imposição (CSV), resultado do motor (JSON), projeto (JSON) e perfil da gráfica (JSON).</p>
+<p>Arquivos: <strong>miolo em ordem de leitura</strong> (PDF com TrimBox/BleedBox, sangria e marcas; formato usual de entrega), miolo imposto (PDF vetorial, alinhado pela TrimBox), código de barras (PDF/SVG), capa planificada (PDF), ficha técnica (TXT), mapa de imposição (CSV), resultado do motor (JSON), projeto (JSON) e perfil da gráfica (JSON).</p>
 
 <h2 id="arquitetura">12. Arquitetura</h2>
 <p>Implementada em TypeScript, com núcleo de domínio puro e determinístico, que roda igual no navegador e no servidor:</p>
@@ -212,6 +247,8 @@ app/           protótipo (interface consome só o resultado do motor)</pre>
 <tr><td class="mono">RN-019</td><td>Brancos nunca são inseridos antes da 1ª/2ª capa nem depois da 3ª/4ª capa quando essas faces estão no arquivo.</td></tr>
 <tr><td class="mono">RN-020</td><td>Novo PDF com o mesmo número de páginas de conteúdo preserva a paginação aprovada; com número diferente, a paginação é refeita e o usuário é avisado.</td></tr>
 <tr><td class="mono">RN-021</td><td>Esquema de dobra (catálogo ou gráfica) só é aceito se a simulação formar códice válido e passar no oráculo.</td></tr>
+<tr><td class="mono">RN-023</td><td>Sem perfil da gráfica, os parâmetros vêm do padrão de mercado do modelo e a saída é rotulada para confirmação.</td></tr>
+<tr><td class="mono">RN-024</td><td>Identificador inválido bloqueia o código de barras; livro sem ISBN gera aviso de obrigatoriedade.</td></tr>
 <tr><td class="mono">RN-022</td><td>Toda folha de PDF gerada leva a faixa de identificação com projeto, forma, lado, versão do motor e da regra, hash e nível.</td></tr>
 </tbody></table></div>
 
@@ -220,7 +257,7 @@ app/           protótipo (interface consome só o resultado do motor)</pre>
 <p>Novos: RF-033 importar e validar perfil da gráfica · RF-034 gerar modelo de perfil para a gráfica · RF-035 ajuste manual de parâmetro com motivo · RF-036 esquemas de dobra da gráfica · RF-037 PDF de capa planificada · RF-038 marcas de corte, dobra e colação · RF-039 compensação de creep · RF-040 verificação de fibra.</p>
 
 <h2 id="testes">16. Validação e testes</h2>
-<p>172 testes automatizados, todos aprovados, em três camadas independentes:</p>
+<p>186 testes automatizados, todos aprovados, em três camadas independentes, além de identificadores (ISBN/ISSN/ISMN), código de barras conferido por decodificador independente, normas editoriais e importação de páginas duplas:</p>
 <ol>
 <li><strong>Referências externas:</strong> imposições clássicas de 8 e 16 páginas, a tabela de 32 páginas da v0.1 e a fórmula fechada do grampo canoa para 4 a 200 páginas.</li>
 <li><strong>Oráculo físico 3D:</strong> segunda implementação, com rotações rígidas, detecção da lombada por adjacência e leitura nas duas orientações. Aplicado ao catálogo, em 3 bordas, e a <strong>3000 esquemas aleatórios</strong>. Também detecta adulterações (troca de páginas, rotação errada).</li>
