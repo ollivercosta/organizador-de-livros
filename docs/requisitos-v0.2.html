@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plataforma de Produção Editorial e Gráfica — Requisitos v0.2</title>
+<style>
+:root { --bg:#f2f3f1; --fg:#15181b; --mut:#59616a; --line:#d4d8db; --ac:#0b6a8c; --acl:#dcedf3; --ok:#2c7a4b; --warn:#9a6200; --err:#b0261d; }
+@media (prefers-color-scheme: dark) { :root { --bg:#121518; --fg:#e6e9eb; --mut:#9aa4ad; --line:#30363c; --ac:#5fb7d6; --acl:#17323d; --ok:#6cc592; --warn:#e2b155; --err:#f08a80; color-scheme: dark; } }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 "IBM Plex Sans", system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)); }
+h1 { font-size: 2rem; line-height:1.2; margin: 0 0 .3rem; } h2 { margin-top: 2.6rem; border-top: 1px solid var(--line); padding-top: 1.2rem; font-size: 1.35rem; } h3 { margin-top: 1.6rem; font-size: 1.05rem; }
+p, li { max-width: 78ch; } .mut { color: var(--mut); }
+code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .9em; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; margin: .6rem 0; } th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; } th { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--mut); }
+.wrap { overflow-x: auto; }
+.box { border-left: 4px solid var(--ac); background: var(--acl); padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 1rem 0; }
+.box.w { border-color: var(--warn); background: transparent; } .box.e { border-color: var(--err); background: transparent; }
+.tag { display:inline-block; font-size:.75rem; font-weight:600; padding:1px 7px; border-radius:3px; border:1px solid var(--line); }
+.feito { color: var(--ok); border-color: var(--ok); } .novo { color: var(--ac); border-color: var(--ac); } .corr { color: var(--err); border-color: var(--err); }
+nav ol { columns: 2; font-size: .9rem; } @media (max-width: 640px) { nav ol { columns: 1; } }
+pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radius: 4px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+<p class="mut mono">Documento de produto · v0.2 · 31/10/2026 · substitui a v0.1</p>
+<h1>Plataforma de Produção Editorial e Gráfica</h1>
+<p>Sistema para preparar, organizar, visualizar, validar e gerar os arquivos finais de produtos editoriais para a gráfica. Cobre todos os modelos de encadernação de códice, além de sanfona e folhas soltas, com um motor de imposição genérico, uma área de configuração alimentada pela gráfica e a rastreabilidade de cada valor usado.</p>
+<div class="box"><strong>Princípio central (mantido).</strong> O usuário informa o produto e fornece as páginas na ordem de leitura. O sistema calcula a estrutura, mostra a relação entre as páginas, apresenta uma prévia e gera os arquivos técnicos. Um valor estimado nunca é apresentado como confirmado pela gráfica. <strong>Novo na v0.2:</strong> os dados da gráfica entram por um perfil técnico importado e por ajustes manuais registrados no projeto.</div>
+
+<nav><h3>Sumário</h3><ol>
+<li><a href="#mudancas">Mudanças em relação à v0.1</a></li><li><a href="#escopo">Objetivos e escopo</a></li><li><a href="#modelos">Modelos cobertos</a></li><li><a href="#jornada">Jornada do usuário</a></li><li><a href="#config">Área de configuração da gráfica</a></li><li><a href="#motor">Motor de imposição</a></li><li><a href="#matematica">Matemática de referência</a></li><li><a href="#maquina">Layout de máquina</a></li><li><a href="#capa">Capas e componentes</a></li><li><a href="#visual">Visualização</a></li><li><a href="#saida">Arquivos de saída e níveis</a></li><li><a href="#arquitetura">Arquitetura</a></li><li><a href="#dados">Modelo de dados</a></li><li><a href="#regras">Regras de negócio</a></li><li><a href="#rf">Requisitos funcionais</a></li><li><a href="#testes">Validação e testes</a></li><li><a href="#riscos">Riscos</a></li><li><a href="#pendentes">Decisões pendentes</a></li><li><a href="#exemplo">Livro infantil de referência</a></li><li><a href="#glossario">Glossário</a></li>
+</ol></nav>
+
+<h2 id="mudancas">1. Mudanças em relação à v0.1</h2>
+<div class="wrap"><table><thead><tr><th>#</th><th>Ponto da v0.1</th><th>Correção na v0.2</th></tr></thead><tbody>
+<tr><td>1</td><td>Escopo restrito ao grampo canoa.</td><td>13 modelos, reduzidos a 4 padrões de montagem (aninhada, alçada, folhas soltas, sanfona) e esquemas de dobra configuráveis. <span class="tag corr">corrigido</span></td></tr>
+<tr><td>2</td><td>O modo leitura do protótipo mostrava as duplas 1|2, 3|4 (frente e verso da mesma folha lado a lado), sempre com “de 16” fixo.</td><td>Duplas corretas: 1 sozinha à direita, depois 2|3 … 30|31, e 32 sozinha. São 17 vistas para 32 páginas. Leitura da direita para a esquerda (RTL) espelhada e encadernação superior suportadas. <span class="tag corr">corrigido</span></td></tr>
+<tr><td>3</td><td>A imposição era tabelada para 1 caderno de 32 páginas em folhas de 4 páginas.</td><td>A imposição é derivada pela simulação física da dobra de qualquer esquema. A tabela da v0.1 continua válida para o caso particular de folhas de 4 páginas aninhadas e é verificada nos testes. <span class="tag corr">corrigido</span></td></tr>
+<tr><td>4</td><td>O exemplo usava autocapa, mas o livro de referência tem capa em Triplex 250 g/m², ou seja, capa separada.</td><td>O modelo de capa passa a ser declaração obrigatória, e os dois cenários foram calculados (seção 19). <span class="tag corr">corrigido</span></td></tr>
+<tr><td>5</td><td>“Folha” era usada em vários sentidos.</td><td>Glossário separa página, folha do livro, folha dobrada (bifólio), caderno, forma e folha de impressão. <span class="tag corr">corrigido</span></td></tr>
+<tr><td>6</td><td>Os estados do projeto misturavam o andamento do projeto com o status do arquivo exportado.</td><td>Duas máquinas de estados: projeto (versão e histórico) e nível de saída de cada execução. <span class="tag corr">corrigido</span></td></tr>
+<tr><td>7</td><td>Sem fonte para os parâmetros da gráfica.</td><td>Área de configuração com perfil da gráfica, seleção por projeto e ajustes manuais com motivo (seção 5). <span class="tag novo">novo</span></td></tr>
+<tr><td>8</td><td>Não verificava se o caderno cabe na folha de impressão.</td><td>Tamanhos de caderno são filtrados pela folha configurada. Ex.: 32 páginas em 160×230 mm (652×944 mm) não cabe em 66×96. <span class="tag novo">novo</span></td></tr>
+<tr><td>9</td><td>Faltavam creep, fibra, marcas de colação, PDF/X, perfil de cor e esquemas de virada.</td><td>Incluídos no motor, na configuração e nas verificações. <span class="tag novo">novo</span></td></tr>
+<tr><td>10</td><td>A verificação era descrita, mas não especificada.</td><td>Oráculo físico 3D independente, testes por propriedades com 3000 esquemas aleatórios e reconstrução da folha impressa de ponta a ponta (seção 15). <span class="tag novo">novo</span></td></tr>
+</tbody></table></div>
+
+<h2 id="escopo">2. Objetivos e escopo</h2>
+<p><strong>Objetivo.</strong> Preparar o material, organizar as páginas, permitir a visualização (leitura e folha impressa) e gerar o arquivo final para a gráfica, com status de validação explícito.</p>
+<h3>Incluído na versão atual (implementado no protótipo)</h3>
+<ul>
+<li>Todos os modelos da seção 3, com encadernação à esquerda, à direita ou superior.</li>
+<li>Importação de PDF com leitura de TrimBox/BleedBox; conferência de formato e sangria por página.</li>
+<li>Paginação com propostas de ajuste, sem alteração automática; brancos com motivo e autor.</li>
+<li>Imposição por simulação de dobra; esquemas da gráfica aceitos.</li>
+<li>Layout de máquina em quatro modos de impressão, com aproveitamento automático, rotação da forma, creep, marcas de corte, dobra e colação.</li>
+<li>Capas: grampo canoa, brochura com orelhas e vincos, capa dura (caixa) e sobrecapa; dimensões de folhetos com compensação de painel.</li>
+<li>PDF imposto vetorial, capa planificada (gabarito com composição das faces), ficha técnica, mapa CSV e resultado JSON.</li>
+<li>Consumo estimado de papel, peso e chapas.</li>
+<li>Área de configuração da gráfica.</li>
+</ul>
+<h3>Fora do escopo atual</h3>
+<ul><li>Integração direta com RIP e JDF/JMF (o vocabulário de dobras já segue o padrão JDF).</li><li>Orçamento com preço garantido.</li><li>Conversão de cor, correção de imagens e preflight completo de PDF/X (fontes, TAC).</li><li>Emenda automática de sanfonas maiores que a folha (sinalizada, não resolvida).</li><li>Imposição combinada de trabalhos diferentes na mesma folha (gang de pedidos).</li></ul>
+<div class="box w"><strong>Limite que permanece.</strong> A plataforma gera imposições matematicamente corretas e verificadas fisicamente. A validade para uma máquina específica depende dos parâmetros da gráfica. O nível “Validado para os parâmetros informados” não substitui a aprovação da gráfica.</div>
+
+<h2 id="modelos">3. Modelos cobertos</h2>
+<p>Todo modelo de códice se reduz a um <strong>padrão de montagem</strong> combinado com um <strong>esquema de dobra</strong> e um <strong>modelo de capa</strong>. Adicionar um modelo é cadastrar uma entrada, sem alterar o motor.</p>
+<div class="wrap"><table><thead><tr><th>Modelo</th><th>Montagem</th><th>Capas aceitas</th><th>Particularidades</th></tr></thead><tbody>
+<tr><td>Grampo canoa</td><td>aninhada</td><td>autocapa, separada</td><td>Bloco em múltiplo de 4; creep relevante; limite de páginas e espessura da gráfica.</td></tr>
+<tr><td>Grampo lateral</td><td>folhas ou alçada</td><td>separada, folhas de capa</td><td>Margem de grampo/furação.</td></tr>
+<tr><td>Brochura hotmelt / PUR</td><td>alçada ou folhas</td><td>separada (com orelhas opcionais)</td><td>Fresagem na lombada; lombada calculada; vincos de dobradiça.</td></tr>
+<tr><td>Brochura costurada</td><td>alçada</td><td>separada</td><td>Exige cadernos dobrados.</td></tr>
+<tr><td>Capa dura costurada / colada</td><td>alçada (ou folhas na colada)</td><td>capa dura</td><td>Guardas; papelão, esquadro, canal, dobra do revestimento; sobrecapa opcional.</td></tr>
+<tr><td>Wire-o / espiral / garra</td><td>folhas</td><td>folhas de capa, sem capa</td><td>Encadernação superior para calendários; corte e empilhamento.</td></tr>
+<tr><td>Cartonado</td><td>folhas</td><td>autocapa, capa dura</td><td>Espessura dominada pelo cartão.</td></tr>
+<tr><td>Sanfona / leporello</td><td>sanfona</td><td>autocapa, capa dura</td><td>Painéis em tira; frente 1..n, verso n+1..2n.</td></tr>
+<tr><td>Folhas soltas</td><td>folhas</td><td>sem capa</td><td>Cartões, fichas.</td></tr>
+</tbody></table></div>
+
+<h2 id="jornada">4. Jornada do usuário</h2>
+<ol>
+<li><strong>Projeto:</strong> nome, modelo, formato, direção de leitura, modelo de capa (declarado), tiragem e cores.</li>
+<li><strong>Configuração da gráfica:</strong> importar o perfil da gráfica, escolher máquina e folhas, e registrar ajustes deste trabalho quando necessário.</li>
+<li><strong>Papéis:</strong> escolhidos do catálogo do perfil (com calibre) ou informados manualmente.</li>
+<li><strong>Arquivo:</strong> importar o PDF na ordem de leitura. O sistema lê páginas, formato e sangria.</li>
+<li><strong>Paginação:</strong> o sistema separa capa e miolo, verifica a compatibilidade e propõe planos de cadernos e brancos. O usuário aprova com motivo.</li>
+<li><strong>Leitura:</strong> folhear em duplas corretas e conferir cada página.</li>
+<li><strong>Imposição:</strong> conferir cada folha, lado A e lado B, posições, rotações e marcas. A seleção fica sincronizada com a leitura.</li>
+<li><strong>Capa:</strong> conferir a planificação, a lombada e os vincos.</li>
+<li><strong>Validação e arquivos:</strong> resolver as constatações e exportar o PDF imposto, a capa, a ficha, o mapa e o projeto. O nível de saída fica explícito em cada folha.</li>
+</ol>
+
+<h2 id="config">5. Área de configuração da gráfica</h2>
+<p>Resolve a lacuna central da v0.1: a falta de parâmetros reais de produção.</p>
+<h3>5.1 Fluxo</h3>
+<ol>
+<li>A plataforma gera um <strong>modelo de perfil</strong> (JSON) com todas as chaves, unidades, opções e indicação de criticidade.</li>
+<li>A gráfica preenche e envia. O usuário importa e o perfil é validado: tipo, faixa, chave conhecida e papel com calibre ou <em>bulk</em>. Um perfil inválido é recusado com a lista de erros.</li>
+<li>O projeto seleciona máquina, folha do miolo, folha da capa e papéis.</li>
+<li>Quando a gráfica informa algo diferente para este trabalho, o usuário registra um <strong>ajuste no projeto</strong>, com valor, motivo obrigatório, autor e data. O histórico é preservado.</li>
+</ol>
+<h3>5.2 Precedência e status</h3>
+<div class="wrap"><table><thead><tr><th>Ordem</th><th>Origem</th><th>Status</th><th>Efeito na saída</th></tr></thead><tbody>
+<tr><td>1</td><td>Ajuste do projeto</td><td>informado</td><td>Conta como válido; motivo e autor registrados.</td></tr>
+<tr><td>2</td><td>Perfil da gráfica (máquina → folha → geral)</td><td>confirmado</td><td>Conta como válido; fonte = gráfica, versão e data.</td></tr>
+<tr><td>3</td><td>Valor genérico da plataforma</td><td>estimado</td><td>Em parâmetro crítico, rebaixa a saída para “Prévia genérica”.</td></tr>
+<tr><td>4</td><td>Ausente</td><td>pendente</td><td>Em parâmetro crítico, bloqueia a saída de produção.</td></tr>
+</tbody></table></div>
+<h3>5.3 Grupos de parâmetros</h3>
+<p>Arquivo (sangria, área de marcas, PDF/X, perfil de saída, resolução, margem de segurança, colação) · Máquina (folha, fibra, borda e medida da pinça, cauda, laterais, modo de impressão, virada do verso, posições, rotação da forma, cores) · Cadernos e dobra (tamanhos aceitos, esquema por tamanho, distribuição na folha) · Acabamento (fresagem, acréscimo e regra da lombada, vinco de dobradiça, redução de painel com orelha, limites da canoa, furação, sobrecapa) · Capa dura (papelão, esquadro, canal, dobra do revestimento, folga e recuo) · Creep (ativo, fator) · Consumo (perda, acerto). Somente os parâmetros aplicáveis ao modelo escolhido aparecem.</p>
+<p>A gráfica também pode enviar <strong>esquemas de dobra próprios</strong> (grade + sequência de dobras). Eles são simulados e verificados como os do catálogo.</p>
+
+<h2 id="motor">6. Motor de imposição</h2>
+<h3>6.1 Simulação de dobra (núcleo)</h3>
+<p>A folha plana é uma grade de células. Cada célula é uma folha do livro (2 páginas), com face F (frente) e B (verso). Cada dobra reflete a parte móvel sobre a linha de dobra, inverte a ordem das camadas e a coloca por cima ou por baixo. A orientação é acumulada em matrizes inteiras 2×2 (grupo diedral), sem ponto flutuante na topologia. Ao final:</p>
+<ul>
+<li>a lombada é a borda criada pela <strong>última dobra</strong>, que precisa dividir a pilha ao meio para formar pares (códice válido);</li>
+<li>o caderno é orientado para a borda de encadernação. Entre as duas orientações físicas equivalentes, escolhe-se a que mantém mais páginas sem rotação, que é a convenção de gráfica;</li>
+<li>a camada L recebe a página 2L+1 na face de cima e 2L+2 na de baixo;</li>
+<li>a rotação de cada página é a inversa da transformação “vista da face → vista do leitor”.</li>
+</ul>
+<p>O catálogo base (F2, F4, F6-RL, F8-AR, F8-PAR, F12-MX, F16-AR, F16-PAR, F24-MX, F32-AR, F64-AR) segue a nomenclatura JDF. A correspondência exata com cada variante JDF deve ser confirmada pela gráfica. As variantes padrão F8-AR e F16-AR <strong>reproduzem a imposição clássica da literatura</strong>: frente <code>5 4 / 8 1</code> e <code>5 12 9 8 / 4 13 16 1</code>.</p>
+<h3>6.2 Montagem do bloco</h3>
+<pre>aninhada (canoa): F_s = Σ_{j&lt;s} P_j/2
+  local i ≤ P/2 → F_s + i ;  local i &gt; P/2 → N − F_s − (P − i)
+alçada:           O_s = Σ_{j&lt;s} P_j ; local i → O_s + i
+folhas soltas:    folha k → páginas 2k+1 / 2k+2
+sanfona:          frente 1..n ; verso n+1..2n (lido após virar)</pre>
+<h3>6.3 Planejamento de cadernos</h3>
+<p>Programação dinâmica sobre os tamanhos aceitos pela gráfica, filtrados pelo que cabe na folha. Minimiza a alteração de páginas e depois o número de cadernos. Só propõe; aplicar exige aprovação (RN-004).</p>
+<h3>6.4 Contratos</h3>
+<p><strong>Entrada:</strong> projeto, modelo, montagem, formato, direção, capa (modelo, fonte, faces no PDF, orelhas, sobrecapa), páginas registradas, dimensões de origem, plano opcional, tiragem, cores, papéis, perfil, seleção e ajustes. <strong>Saída:</strong> versão do motor e da regra, hash SHA-256 da entrada canônica, parâmetros resolvidos com origem, plano e opções, unidades (cadernos), formas com lados A e B, mapa página → caderno → forma → lado → posição → rotação, leitura, física, capa, consumo, constatações e nível.</p>
+
+<h2 id="matematica">7. Matemática de referência</h2>
+<div class="wrap"><table><thead><tr><th>Grandeza</th><th>Fórmula</th><th>Observação</th></tr></thead><tbody>
+<tr><td>Calibre</td><td class="mono">µm = gramatura (g/m²) × bulk (cm³/g)</td><td>1 cm³/m² = 1 µm. A gramatura sozinha não determina a espessura.</td></tr>
+<tr><td>Espessura do bloco</td><td class="mono">(páginas/2) × calibre</td><td>Inclui brancos.</td></tr>
+<tr><td>Lombada de brochura</td><td class="mono">bloco + 2·calibre_capa + acréscimo</td><td>A soma da capa e o acréscimo vêm da gráfica.</td></tr>
+<tr><td>Creep</td><td class="mono">d × calibre × fator</td><td>d = folhas dobradas que envolvem a folha. No canoa, o máximo é (N/4 − 1) × calibre (+1 com capa separada).</td></tr>
+<tr><td>Folga entre células</td><td class="mono">sangria(borda A) + sangria(borda B)</td><td>Lombada: 0 (canoa/costura) ou 2 × fresagem; dobras de sanfona: 0.</td></tr>
+<tr><td>Capa canoa</td><td class="mono">2W + extra</td><td></td></tr>
+<tr><td>Capa brochura</td><td class="mono">2(W − redução) + L + 2·orelha</td><td>Vincos na lombada e a ±d dela.</td></tr>
+<tr><td>Capa dura</td><td class="mono">papelão = (W + esq − recuo) × (H + 2·esq)<br>cartão de lombada = bloco + 2·papelão + folga<br>revestimento = 2·dobra + 2·papelão + 2·canal + cartão</td><td>Todos os parâmetros vêm da gráfica.</td></tr>
+<tr><td>Folheto em rolo</td><td class="mono">painéis internos −c, −2c…</td><td>Soma = largura aberta.</td></tr>
+<tr><td>Consumo</td><td class="mono">⌈⌈tiragem/cópias⌉ × (1+perda)⌉ + acerto</td><td>Peso = folhas × área × gramatura. Chapas: frente + verso, ou máx. em chapa única.</td></tr>
+</tbody></table></div>
+
+<h2 id="maquina">8. Layout de máquina</h2>
+<ul>
+<li><strong>Frente e verso (sheetwise):</strong> duas chapas. O verso pode ter virada lateral (espelho em x) ou virada pela pinça (espelho em y; nesse caso a pinça muda de borda e as duas bordas recebem a maior margem).</li>
+<li><strong>Virada lateral (work-and-turn) e virada pela pinça (work-and-tumble):</strong> chapa única com frente e verso. Rende 2 cópias por posição e exige área imprimível simétrica.</li>
+<li><strong>Perfecting:</strong> frente e verso na mesma passada, com a virada da máquina.</li>
+<li>Aproveitamento automático por posições, rotação da forma de 0° ou 90° (desempate pela fibra), centralização e marcas fora da sangria.</li>
+<li>Distribuição: repetir o mesmo caderno, sequencial, ou corte e empilhamento (folhas soltas).</li>
+<li>Verificações: sobreposição, limites da folha, cobertura por posição, fibra × lombada, forma que não cabe.</li>
+</ul>
+
+<h2 id="capa">9. Capas e componentes</h2>
+<p>A capa planificada é calculada a partir do miolo e dos parâmetros: lombada, orelhas, vincos, papelão e revestimento. A face interna é a externa espelhada. Na composição, a sangria só se aplica às bordas externas da peça. Em capa dura, as guardas entram na espessura do bloco e na sequência de leitura.</p>
+
+<h2 id="visual">10. Visualização</h2>
+<ul>
+<li><strong>Leitura:</strong> duplas corretas, navegação por botões e teclado, faixa com todas as faces, miniaturas reais do PDF e brancos identificados.</li>
+<li><strong>Imposição:</strong> folha em escala com pinça, área imprimível, sangria, corte, número e cabeça da página, rotação e marcas. Inclui a vista lógica dos cadernos (frente e verso).</li>
+<li><strong>Sincronização (RF-013):</strong> selecionar uma página na leitura, na paginação ou na folha leva à mesma página nas outras vistas.</li>
+<li><strong>Capa:</strong> planificação com painéis, medidas, dobras e vincos.</li>
+</ul>
+
+<h2 id="saida">11. Arquivos de saída e níveis</h2>
+<div class="wrap"><table><thead><tr><th>Nível</th><th>Condição</th><th>Marcação nos arquivos</th></tr></thead><tbody>
+<tr><td>Bloqueado</td><td>Erro ou pendência (paginação, parâmetro crítico ausente, forma que não cabe…).</td><td>PDF de produção indisponível.</td></tr>
+<tr><td>Prévia genérica</td><td>Algum parâmetro crítico vem de valor genérico.</td><td>“PRÉVIA — NÃO VALIDADO PARA PRODUÇÃO” em cada folha.</td></tr>
+<tr><td>Validado para os parâmetros informados</td><td>Todos os críticos confirmados (gráfica) ou informados (projeto), sem erros.</td><td>Faixa com versão, regra e hash; não substitui a aprovação da gráfica.</td></tr>
+</tbody></table></div>
+<p>Arquivos: miolo imposto (PDF vetorial, alinhado pela TrimBox), capa planificada (PDF), ficha técnica (TXT), mapa de imposição (CSV), resultado do motor (JSON), projeto (JSON) e perfil da gráfica (JSON).</p>
+
+<h2 id="arquitetura">12. Arquitetura</h2>
+<p>Implementada em TypeScript, com núcleo de domínio puro e determinístico, que roda igual no navegador e no servidor:</p>
+<pre>src/core       geometria D4, estados de evidência, hash
+src/fold       esquemas, simulador de dobra, oráculo 3D
+src/binding    modelos, paginação, montagem, sanfona
+src/press      layout de máquina
+src/cover      física (calibre, lombada, creep) e capas
+src/consumption consumo
+src/config     registro de parâmetros, perfil da gráfica, resolução
+src/validate   verificações estruturais
+src/pdf        PDF imposto e capa (pdf-lib, MIT)
+src/report     ficha técnica e mapa CSV
+src/engine.ts  orquestração (contrato de entrada/saída)
+app/           protótipo (interface consome só o resultado do motor)</pre>
+<p>A interface não calcula imposição (RN-014). Bibliotecas de licença AGPL (MuPDF, Ghostscript) foram evitadas. A decisão de processamento no cliente ou no servidor (DP-002) fica aberta, porque o núcleo roda nos dois.</p>
+
+<h2 id="dados">13. Modelo de dados (atualizado)</h2>
+<div class="wrap"><table><thead><tr><th>Entidade</th><th>Campos essenciais</th></tr></thead><tbody>
+<tr><td>Projeto</td><td>id, nome, versão (incrementa a cada alteração estrutural), histórico de eventos.</td></tr>
+<tr><td>PerfilGrafica</td><td>schema, gráfica, versão, data, responsável, parâmetros, máquinas, folhas, papéis, esquemas de dobra.</td></tr>
+<tr><td>AjusteProjeto</td><td>chave, valor, motivo, autor, data.</td></tr>
+<tr><td>PaginaRegistro</td><td>id estável, tipo (conteúdo/branco), papel (capas, miolo, guarda), origem (arquivo, índice), motivo/autor de brancos.</td></tr>
+<tr><td>Valor&lt;T&gt;</td><td>valor, unidade, origem, status, fonte, autor, data.</td></tr>
+<tr><td>Execução do motor</td><td>versão do motor e da regra, hash da entrada, resultado completo.</td></tr>
+<tr><td>Forma / Posicionamento</td><td>folha, modo, virada, posições, cópias por folha; página, caixa de corte, sangria por lado, rotação, creep, face.</td></tr>
+<tr><td>Constatação</td><td>código, severidade (erro, pendência, aviso, não verificável, info), mensagem, evidência, opções.</td></tr>
+</tbody></table></div>
+
+<h2 id="regras">14. Regras de negócio</h2>
+<p>RN-001 a RN-016 da v0.1 foram mantidas e agora são aplicadas no motor. Novas:</p>
+<div class="wrap"><table><tbody>
+<tr><td class="mono">RN-017</td><td>Precedência dos parâmetros: projeto → gráfica → genérico → pendente. Todo ajuste exige motivo.</td></tr>
+<tr><td class="mono">RN-018</td><td>Tamanho de caderno só é usado se a forma couber na folha configurada.</td></tr>
+<tr><td class="mono">RN-019</td><td>Brancos nunca são inseridos antes da 1ª/2ª capa nem depois da 3ª/4ª capa quando essas faces estão no arquivo.</td></tr>
+<tr><td class="mono">RN-020</td><td>Novo PDF com o mesmo número de páginas de conteúdo preserva a paginação aprovada; com número diferente, a paginação é refeita e o usuário é avisado.</td></tr>
+<tr><td class="mono">RN-021</td><td>Esquema de dobra (catálogo ou gráfica) só é aceito se a simulação formar códice válido e passar no oráculo.</td></tr>
+<tr><td class="mono">RN-022</td><td>Toda folha de PDF gerada leva a faixa de identificação com projeto, forma, lado, versão do motor e da regra, hash e nível.</td></tr>
+</tbody></table></div>
+
+<h2 id="rf">15. Requisitos funcionais — situação</h2>
+<p>RF-001 a RF-032 da v0.1 estão atendidos no protótipo, com quatro ressalvas: RF-016 (fontes, cor e resolução: só dimensões e sangria nesta versão), RF-024 (custo: só consumo, sem preço), RF-029 (aprovação formal por versão: o histórico existe, a assinatura de aprovação ainda não) e RF-030 (auditoria local ao projeto, sem servidor).</p>
+<p>Novos: RF-033 importar e validar perfil da gráfica · RF-034 gerar modelo de perfil para a gráfica · RF-035 ajuste manual de parâmetro com motivo · RF-036 esquemas de dobra da gráfica · RF-037 PDF de capa planificada · RF-038 marcas de corte, dobra e colação · RF-039 compensação de creep · RF-040 verificação de fibra.</p>
+
+<h2 id="testes">16. Validação e testes</h2>
+<p>172 testes automatizados, todos aprovados, em três camadas independentes:</p>
+<ol>
+<li><strong>Referências externas:</strong> imposições clássicas de 8 e 16 páginas, a tabela de 32 páginas da v0.1 e a fórmula fechada do grampo canoa para 4 a 200 páginas.</li>
+<li><strong>Oráculo físico 3D:</strong> segunda implementação, com rotações rígidas, detecção da lombada por adjacência e leitura nas duas orientações. Aplicado ao catálogo, em 3 bordas, e a <strong>3000 esquemas aleatórios</strong>. Também detecta adulterações (troca de páginas, rotação errada).</li>
+<li><strong>Reconstrução de ponta a ponta:</strong> a partir do que foi impresso nos lados A e B da folha, desfaz virada e rotação, remonta cada caderno e o submete ao oráculo. São 7 cenários × 5 modos de impressão × 2 rotações.</li>
+</ol>
+<p>Além disso: leitura física dos livros montados (aninhados e alçados, LTR, RTL e superior), programação dinâmica comparada a busca exaustiva, física, capas, precedência de configuração, validação de perfil, reprodutibilidade por hash, CT-004 e CT-005.</p>
+
+<h2 id="riscos">17. Riscos</h2>
+<div class="wrap"><table><thead><tr><th>Risco</th><th>Mitigação</th></tr></thead><tbody>
+<tr><td>Variante de dobra da máquina diferente da padrão.</td><td>A gráfica envia o esquema exato; a simulação e o oráculo garantem a coerência. Imprimir uma prova dobrada na primeira tiragem.</td></tr>
+<tr><td>Creep linear pode divergir para papéis espessos.</td><td>O fator de creep é calibrado pela gráfica; o valor é exibido como calculado a partir do fator.</td></tr>
+<tr><td>Parâmetros genéricos tomados como reais.</td><td>Nível “Prévia genérica” e marcação em cada folha.</td></tr>
+<tr><td>PDFs sem TrimBox.</td><td>Usa a MediaBox e avisa; recomenda PDF/X.</td></tr>
+<tr><td>Arquivos grandes no navegador.</td><td>Núcleo portável para backend (DP-002).</td></tr>
+</tbody></table></div>
+
+<h2 id="pendentes">18. Decisões pendentes</h2>
+<div class="wrap"><table><tbody>
+<tr><td class="mono">DP-001/002</td><td>Web ou híbrido; cliente ou servidor. O núcleo já roda nos dois. Medir com PDFs reais acima de 300 páginas.</td></tr>
+<tr><td class="mono">DP-003</td><td>Modelo de capa do livro de referência. A especificação (Triplex 250) indica capa separada; confirmar.</td></tr>
+<tr><td class="mono">DP-004</td><td>Primeira gráfica parceira para emitir um perfil real.</td></tr>
+<tr><td class="mono">DP-008</td><td>Multiusuário e aprovação formal por versão (o protótipo é individual).</td></tr>
+<tr><td class="mono">DP-011</td><td>Emenda de sanfonas longas: largura da aba e regra de divisão.</td></tr>
+<tr><td class="mono">DP-012</td><td>Preflight completo (fontes, TAC, cor), com ferramenta própria ou integração.</td></tr>
+</tbody></table></div>
+
+<h2 id="exemplo">19. Livro infantil de referência (recalculado)</h2>
+<p>160 × 230 mm, grampo canoa, miolo couchê fosco 115 g/m² 4×4, capa Triplex 250 g/m² laminada, sangria 3 mm, tiragem de 1.000 exemplares. Arquivo com 30 páginas, incluindo as 4 faces da capa e 1 branco. Os valores de folha e calibre abaixo vêm de um perfil de exemplo, não de uma gráfica real.</p>
+<div class="wrap"><table><thead><tr><th></th><th>A — autocapa</th><th>B — capa separada (coerente com Triplex)</th></tr></thead><tbody>
+<tr><td>Bloco</td><td>30 pp → incompatível → +2 brancos (aprovados) = 32 pp</td><td>miolo 26 pp → incompatível → +2 brancos = 28 pp</td></tr>
+<tr><td>Cadernos</td><td>16 + 16 aninhados (32 pp não cabe em 66×96)</td><td>16 + 8 + 4 aninhados</td></tr>
+<tr><td>Formas</td><td>2 formas, 1 posição cada</td><td>3 formas: 1, 2 e 4 posições</td></tr>
+<tr><td>Capa</td><td>pp. 1, 2, 31, 32 do caderno externo</td><td>planificada 320 × 230 mm + 3 mm, em folha 48×66 (2 por folha)</td></tr>
+<tr><td>Creep máximo</td><td>7 × 0,098 = 0,686 mm</td><td>(6 + 1 da capa) × 0,098 = 0,686 mm</td></tr>
+<tr><td>Remover o branco existente</td><td colspan="2">Não resolve sozinho: 29 ou 25 páginas não são múltiplos de 4.</td></tr>
+</tbody></table></div>
+
+<h2 id="glossario">20. Glossário (revisado)</h2>
+<div class="wrap"><table><tbody>
+<tr><td>Página</td><td>Um lado de uma folha do livro.</td></tr>
+<tr><td>Folha do livro</td><td>Unidade física após o refile, com 2 páginas (frente e verso).</td></tr>
+<tr><td>Folha dobrada (bifólio)</td><td>Papel dobrado ao meio que gera 2 folhas (4 páginas).</td></tr>
+<tr><td>Caderno</td><td>Conjunto de folhas obtido da dobra de uma forma; unidade de montagem.</td></tr>
+<tr><td>Forma</td><td>Arranjo de páginas de um caderno (ou capa) na folha de impressão, por lado.</td></tr>
+<tr><td>Folha de impressão</td><td>Papel que entra na máquina; pode conter várias posições (cópias).</td></tr>
+<tr><td>Aninhada / alçada</td><td>Cadernos um dentro do outro (canoa) / empilhados em sequência.</td></tr>
+<tr><td>Virada lateral / pela pinça</td><td>Work-and-turn / work-and-tumble.</td></tr>
+<tr><td>Pinça, cauda</td><td>Borda pega pela máquina / borda oposta.</td></tr>
+<tr><td>Fresagem</td><td>Material removido da lombada antes da cola.</td></tr>
+<tr><td>Creep</td><td>Avanço das folhas internas na frente do caderno; compensado deslocando o conteúdo para a lombada.</td></tr>
+<tr><td>Esquadro, canal, dobra do revestimento</td><td>Sobra do papelão, junta entre papelão e lombada, e revestimento dobrado para dentro (capa dura).</td></tr>
+<tr><td>Bulk</td><td>Volume específico do papel (cm³/g).</td></tr>
+<tr><td>Marca de colação</td><td>Marca escalonada no dorso dos cadernos para conferir a ordem.</td></tr>
+</tbody></table></div>
+<p class="mut">Documento de trabalho. Não é validação de gráfica. Os itens pendentes permanecem explicitamente pendentes.</p>
+</main>
+</body>
+</html>
