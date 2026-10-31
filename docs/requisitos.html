@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Plataforma de Produção Editorial e Gráfica — Requisitos v0.3</title>
+<title>Plataforma de Produção Editorial e Gráfica — Requisitos v0.4</title>
 <style>
 :root { --bg:#f2f3f1; --fg:#15181b; --mut:#59616a; --line:#d4d8db; --ac:#0b6a8c; --acl:#dcedf3; --ok:#2c7a4b; --warn:#9a6200; --err:#b0261d; }
 @media (prefers-color-scheme: dark) { :root { --bg:#121518; --fg:#e6e9eb; --mut:#9aa4ad; --line:#30363c; --ac:#5fb7d6; --acl:#17323d; --ok:#6cc592; --warn:#e2b155; --err:#f08a80; color-scheme: dark; } }
@@ -24,7 +24,7 @@ pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radiu
 </head>
 <body>
 <main>
-<p class="mut mono">Documento de produto · v0.3 · 31/10/2026 · substitui a v0.2</p>
+<p class="mut mono">Documento de produto · v0.4 · 31/10/2026 · substitui a v0.3</p>
 <h1>Plataforma de Produção Editorial e Gráfica</h1>
 <p>Sistema para preparar, organizar, visualizar, validar e gerar os arquivos finais de produtos editoriais para a gráfica. Cobre todos os modelos de encadernação de códice, além de sanfona e folhas soltas, com um motor de imposição genérico, uma área de configuração alimentada pela gráfica e a rastreabilidade de cada valor usado.</p>
 <div class="box"><strong>Princípio central (mantido).</strong> O usuário informa o produto e fornece as páginas na ordem de leitura. O sistema calcula a estrutura, mostra a relação entre as páginas, apresenta uma prévia e gera os arquivos técnicos. Um valor estimado nunca é apresentado como confirmado pela gráfica. <strong>Novo na v0.2:</strong> os dados da gráfica entram por um perfil técnico importado e por ajustes manuais registrados no projeto.</div>
@@ -34,6 +34,14 @@ pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radiu
 </ol></nav>
 
 <h2 id="mudancas">1. Mudanças</h2>
+<h3>v0.4</h3>
+<ul>
+<li><strong>ISBN: só regras.</strong> O projeto não gera ISBN nem código de barras (ambos vêm da Agência Brasileira do ISBN). Aplica as regras de posição: folha de rosto em página ímpar, ficha catalográfica com o ISBN no verso dela, capítulos em página ímpar, área reservada para o código de barras na 4ª capa. Quando a posição está errada, propõe e aplica com um clique a inclusão de página em branco que corrige a paginação.</li>
+<li><strong>Página em branco em qualquer ponto</strong> (antes ou depois de qualquer página). As marcações editoriais acompanham a página, não o número.</li>
+<li><strong>Arquivo principal: miolo lado a lado</strong>, em pares de impressão (N|1, 2|N−1…), com sangria nas bordas externas, marcas de corte e dobra e compensação de avanço (creep). O formato recomendado segue o que a gráfica pediu.</li>
+<li><strong>Somente PDF para pessoas:</strong> saem da interface os arquivos JSON e CSV. Entram “Especificações do livro” e “Perguntas para a gráfica”, em PDF e linguagem simples.</li>
+<li><strong>Interface reorganizada</strong> em 6 etapas (Livro, Páginas, Conferir, Montagem, Gráfica, Entregar), cada uma com finalidade e passos de uso; detalhes técnicos recolhidos.</li>
+</ul>
 <h3>v0.3</h3>
 <ul>
 <li><strong>Padrão de mercado por modelo</strong> substitui os valores genéricos: folhas brasileiras (BB 66×96, AA 76×112, frações, SRA3), máquina offset e digital de referência, catálogo de papéis com espessura típica e parâmetros de acabamento por modelo. O projeto funciona sem gráfica; a saída é marcada “padrão de mercado — confirmar com a gráfica”.</li>
@@ -126,16 +134,15 @@ pre { background: var(--acl); padding: 10px 12px; overflow-x: auto; border-radiu
 
 <h2 id="normas">5A. Normas editoriais e ISBN</h2>
 <div class="wrap"><table><thead><tr><th>Item</th><th>Regra aplicada</th><th>Referência</th></tr></thead><tbody>
-<tr><td>ISBN</td><td>Obrigatório no livro, com ficha catalográfica. ISBN-13 (978/979); ISBN-10 convertido. Cada formato e cada nova edição com alteração exigem ISBN próprio.</td><td>ISO 2108; Lei 10.753/2003, art. 6º</td></tr>
-<tr><td>ISSN / ISMN</td><td>Periódicos: EAN 977 + ISSN + edição (complemento 2 dígitos). Partituras: 979-0.</td><td>ISO 3297; ISO 10957</td></tr>
-<tr><td>Código de barras</td><td>EAN-13; módulo 0,33 mm; ampliação 80–200%; margens de silêncio 11/7 módulos; preto sobre fundo claro; na 4ª capa, com margem de segurança e folga do vinco/lombada. Exportado em PDF e SVG, ou desenhado na capa.</td><td>GS1</td></tr>
+<tr><td>ISBN</td><td>Obrigatório no livro, com ficha catalográfica; fornecido pela Agência Brasileira do ISBN (o projeto não gera). Cada formato e cada nova edição com alteração exigem ISBN próprio.</td><td>Lei 10.753/2003, art. 6º</td></tr>
+<tr><td>Código de barras</td><td>Fornecido pela Agência. O projeto reserva a área na 4ª capa (37,29 × 25,93 mm, tamanho nominal GS1; mínimo 80%), embaixo, junto à lombada, respeitando margem de segurança e vinco.</td><td>GS1</td></tr>
+<tr><td>Correção automática</td><td>Ficha catalográfica numa página ímpar, folha de rosto numa página par ou capítulo numa página par: o projeto propõe inserir uma página em branco antes da página e aplica com um clique; depois, completa o total de cadernos.</td><td>—</td></tr>
 <tr><td>Folha de rosto e créditos</td><td>Folha de rosto em página ímpar; créditos, ISBN e ficha no verso.</td><td>ABNT NBR 6029</td></tr>
 <tr><td>Capítulos</td><td>Início em página ímpar (aviso).</td><td>Convenção editorial</td></tr>
 <tr><td>Lombada</td><td>Texto longitudinal, de cima para baixo; abaixo de ~5 mm, avaliar lombada sem texto.</td><td>ABNT NBR 12225</td></tr>
 <tr><td>Ficha catalográfica e depósito legal</td><td>Lembretes (não verificáveis): ficha por bibliotecário com CRB; depósito na Biblioteca Nacional.</td><td>Lei 10.994/2004</td></tr>
-<tr><td>Verificação no arquivo</td><td>O identificador é procurado no texto da página de créditos e da 4ª capa.</td><td>—</td></tr>
 </tbody></table></div>
-<p>A hifenização do ISBN depende das faixas da agência; a plataforma valida os dígitos e usa a forma hifenizada informada pelo usuário.</p>
+<p>As páginas especiais são marcadas na lista de páginas (folha de rosto, ficha catalográfica, início de capítulo). A marcação acompanha a página quando brancos são inseridos.</p>
 
 <h2 id="importacao">5B. Envio do arquivo</h2>
 <ul>
@@ -209,7 +216,7 @@ sanfona:          frente 1..n ; verso n+1..2n (lido após virar)</pre>
 <tr><td>Padrão de mercado</td><td>Algum parâmetro crítico vem do padrão de mercado.</td><td>“PADRÃO DE MERCADO — CONFIRMAR PARÂMETROS COM A GRÁFICA” fora da área de corte.</td></tr>
 <tr><td>Validado para os parâmetros informados</td><td>Todos os críticos confirmados (gráfica) ou informados (projeto), sem erros.</td><td>Faixa com versão, regra e hash; não substitui a aprovação da gráfica.</td></tr>
 </tbody></table></div>
-<p>Arquivos: <strong>miolo em ordem de leitura</strong> (PDF com TrimBox/BleedBox, sangria e marcas; formato usual de entrega), miolo imposto (PDF vetorial, alinhado pela TrimBox), código de barras (PDF/SVG), capa planificada (PDF), ficha técnica (TXT), mapa de imposição (CSV), resultado do motor (JSON), projeto (JSON) e perfil da gráfica (JSON).</p>
+<p>Arquivos (todos PDF): <strong>miolo lado a lado</strong> em pares de impressão (formato pedido pela gráfica de referência), miolo em páginas individuais (ordem de leitura), folhas de impressão montadas, capa aberta, especificações do livro, perguntas para a gráfica e duplas de leitura para revisão. Removidos da interface: JSON e CSV. Também: capa planificada (PDF), ficha técnica (TXT), mapa de imposição (CSV), resultado do motor (JSON), projeto (JSON) e perfil da gráfica (JSON).</p>
 
 <h2 id="arquitetura">12. Arquitetura</h2>
 <p>Implementada em TypeScript, com núcleo de domínio puro e determinístico, que roda igual no navegador e no servidor:</p>
@@ -257,7 +264,7 @@ app/           protótipo (interface consome só o resultado do motor)</pre>
 <p>Novos: RF-033 importar e validar perfil da gráfica · RF-034 gerar modelo de perfil para a gráfica · RF-035 ajuste manual de parâmetro com motivo · RF-036 esquemas de dobra da gráfica · RF-037 PDF de capa planificada · RF-038 marcas de corte, dobra e colação · RF-039 compensação de creep · RF-040 verificação de fibra.</p>
 
 <h2 id="testes">16. Validação e testes</h2>
-<p>186 testes automatizados, todos aprovados, em três camadas independentes, além de identificadores (ISBN/ISSN/ISMN), código de barras conferido por decodificador independente, normas editoriais e importação de páginas duplas:</p>
+<p>182 testes automatizados, todos aprovados, em três camadas independentes, além de regras editoriais com correção automática, pares de impressão (ordem de livreto), PDF lado a lado e importação de páginas duplas:</p>
 <ol>
 <li><strong>Referências externas:</strong> imposições clássicas de 8 e 16 páginas, a tabela de 32 páginas da v0.1 e a fórmula fechada do grampo canoa para 4 a 200 páginas.</li>
 <li><strong>Oráculo físico 3D:</strong> segunda implementação, com rotações rígidas, detecção da lombada por adjacência e leitura nas duas orientações. Aplicado ao catálogo, em 3 bordas, e a <strong>3000 esquemas aleatórios</strong>. Também detecta adulterações (troca de páginas, rotação errada).</li>

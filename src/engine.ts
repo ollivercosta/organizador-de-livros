@@ -16,7 +16,8 @@ import {
   type AjusteProjeto, type NivelSaida, type PerfilGrafica, type Resolvidos, type SelecaoPerfil, type ValorParam,
 } from './config/profile.js';
 import { REGISTRO } from './config/registry.js';
-import { avaliarEditorial, type DadosEditoriais, type ResultadoEditorial } from './editorial/normas.js';
+import { avaliarEditorial, type DadosEditoriais, type PainelQuarta, type ResultadoEditorial } from './editorial/normas.js';
+import { paresDeImpressao, type ParImpressao } from './binding/pares.js';
 import { FOLHAS_REFERENCIA, FONTE_REFERENCIA, PAPEIS_REFERENCIA, SELECAO_REFERENCIA } from './config/referencia.js';
 import { arred, type Valor } from './core/evidence.js';
 import type { Edge } from './core/geometry.js';
@@ -62,7 +63,7 @@ export interface EntradaProjeto {
   perfil: PerfilGrafica | null;
   selecao: SelecaoPerfil;
   ajustes: AjusteProjeto[];
-  /** Identificador, código de barras e estrutura editorial (ISBN, NBR 6029). */
+  /** Regras editoriais (posição da ficha catalográfica/ISBN, folha de rosto, capítulos). */
   editorial?: DadosEditoriais;
 }
 
@@ -113,6 +114,8 @@ export interface ResultadoMotor {
   capa: { planificacao: Planificacao | null; capaDura: ResultadoCapaDura | null; sobrecapa: Planificacao | null; folhasDeCapa: number };
   consumo: { miolo: Consumo | null; capa: Consumo | null };
   editorial: ResultadoEditorial;
+  /** Folhas dobradas com as páginas lado a lado (lado de fora e de dentro), da mais externa à interna. */
+  pares: ParImpressao[];
   constatacoes: Constatacao[];
   nivel: NivelSaida;
   rotuloNivel: string;
@@ -414,8 +417,8 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
     c.push({ codigo: 'ARQ-003', severidade: 'nao_verificavel', mensagem: 'Dimensões do arquivo de origem não verificadas (nenhum PDF importado).' });
   }
 
-  // ---------------- Editorial (ISBN, código de barras, NBR 6029/12225) ----------------
-  let quarta: Parameters<typeof avaliarEditorial>[3] = null;
+  // ---------------- Editorial (regras do ISBN e NBR 6029/12225) ----------------
+  let quarta: PainelQuarta | null = null;
   if (planificacao) {
     const p4 = planificacao.paineis.find((p) => p.nome.includes('4ª capa'));
     const lomb = planificacao.paineis.find((p) => p.tipo === 'lombada');
@@ -429,9 +432,12 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
   } else if (e.capa.modelo === 'folhas_de_capa') {
     quarta = { alvo: 'folha_capa', x0: 0, largura: W, altura: H, lombadaADireita: !rtl, folgaLombada: modelo.furacao ? (num(R, 'acabamento.furacao.margem').valor ?? 0) : 0 };
   }
-  const editorial = avaliarEditorial(e.editorial, e.modelo, N, e.encadernacaoSuperior ? null : quarta,
+  const editorial = avaliarEditorial(e.editorial, e.modelo, miolo, e.encadernacaoSuperior ? null : quarta,
     num(R, 'arquivo.margemSeguranca').valor ?? 5, lombada?.valor ?? null);
   c.push(...editorial.constatacoes);
+
+  // ---------------- Pares de impressão (lado a lado) ----------------
+  const pares = paresDeImpressao(unidades, montagem, e.direcao);
 
   // ---------------- Consumo ----------------
   const tiragem: Valor<number> = e.tiragem ? { valor: e.tiragem, origem: 'projeto', status: 'informado' } : { valor: null, origem: 'ausente', status: 'pendente' };
@@ -503,6 +509,7 @@ export function executarMotor(e: EntradaProjeto, agora = new Date().toISOString(
     capa: { planificacao, capaDura: rCapaDura, sobrecapa: plSobrecapa, folhasDeCapa },
     consumo: { miolo: consumoMiolo, capa: consumoCapa },
     editorial,
+    pares,
     constatacoes: ordenarConstatacoes(c),
     nivel,
     rotuloNivel: ROTULO_NIVEL[nivel],

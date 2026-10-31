@@ -17,7 +17,6 @@ import { mmToPt } from '../core/evidence.js';
 import type { EntradaProjeto, ResultadoMotor } from '../engine.js';
 import type { Forma, Posicionamento } from '../press/layout.js';
 import type { Planificacao } from '../cover/cover.js';
-import type { GeometriaCodigo } from '../editorial/codigoBarras.js';
 
 const REG = cmyk(1, 1, 1, 1); // cor de registro (marcas)
 const PRETO = cmyk(0, 0, 0, 1);
@@ -170,7 +169,6 @@ export async function gerarPdfCapa(
   entrada: EntradaProjeto,
   r: ResultadoMotor,
   faces?: { origemBytes: Uint8Array; externa: { primeira?: RefOrigem; quarta?: RefOrigem }; interna?: { segunda?: RefOrigem; terceira?: RefOrigem } },
-  codigo?: { geometria: GeometriaCodigo; x: number; y: number },
 ): Promise<Uint8Array> {
   const dest = await PDFDocument.create();
   const font = await dest.embedFont(StandardFonts.Helvetica);
@@ -214,7 +212,6 @@ export async function gerarPdfCapa(
       const nomeFace = lado === 'interna' ? p.nome.replace('1ª capa', '2ª capa').replace('4ª capa', '3ª capa').replace('orelha (1ª)', 'orelha (2ª)').replace('orelha (4ª)', 'orelha (3ª)') : p.nome;
       page.drawText(`${nomeFace} — ${p.largura.toFixed(2)} mm`, { x: mmToPt(ox + p.x + 2), y: mmToPt(H - oy + 2), size: 6, font, color: PRETO });
     }
-    if (codigo && lado === 'externa') desenharCodigo(page, H, codigo.geometria, ox + codigo.x, oy + codigo.y, font);
     // Linhas: corte (contorno), dobras e vincos
     const ly = (y: number) => mmToPt(H - y);
     page.drawRectangle({ x: mmToPt(ox), y: ly(oy + pl.altura), width: mmToPt(pl.largura), height: mmToPt(pl.altura), borderColor: REG, borderWidth: 0.25 });
@@ -233,34 +230,12 @@ export async function gerarPdfCapa(
   return dest.save();
 }
 
-/** Desenha o EAN-13 vetorial (barras 100% K sobre fundo branco) com origem (x, y) em mm de tela. */
-export function desenharCodigo(page: PDFPage, H: number, g: GeometriaCodigo, x: number, y: number, font: PDFFont) {
-  page.drawRectangle({ x: mmToPt(x), y: mmToPt(H - y - g.altura), width: mmToPt(g.largura), height: mmToPt(g.altura), color: cmyk(0, 0, 0, 0) });
-  for (const b of g.barras) page.drawRectangle({ x: mmToPt(x + b.x), y: mmToPt(H - y - b.y - b.h), width: mmToPt(b.w), height: mmToPt(b.h), color: PRETO });
-  for (const t of g.textos) {
-    const size = mmToPt(t.tamanho);
-    const w = font.widthOfTextAtSize(t.texto, size);
-    const dx = t.ancora === 'middle' ? -w / 2 : t.ancora === 'end' ? -w : 0;
-    page.drawText(t.texto, { x: mmToPt(x + t.x) + dx, y: mmToPt(H - y - t.y), size, font, color: PRETO });
-  }
-}
-
-/** Código de barras isolado (PDF vetorial) para o designer posicionar na arte. */
-export async function gerarPdfCodigo(g: GeometriaCodigo, titulo: string): Promise<Uint8Array> {
-  const dest = await PDFDocument.create();
-  const font = await dest.embedFont(StandardFonts.Helvetica);
-  const page = dest.addPage([mmToPt(g.largura), mmToPt(g.altura)]);
-  desenharCodigo(page, g.altura, g, 0, 0, font);
-  dest.setTitle(titulo);
-  return dest.save();
-}
-
 /**
  * PDF para a gráfica em ORDEM DE LEITURA: uma página do PDF por página do livro (brancos incluídos),
  * MediaBox = corte + sangria + área de marcas, TrimBox/BleedBox definidas, marcas de corte opcionais.
  * É o formato que a maioria das gráficas pede, pois elas fazem a imposição no próprio fluxo (RIP).
  */
-export async function gerarPdfOrdemLeitura(origemBytes: Uint8Array, entrada: EntradaProjeto, r: ResultadoMotor, opts: { marcas: boolean; sangria: number; codigo?: { geometria: GeometriaCodigo; pagina: number; x: number; y: number } }): Promise<Uint8Array> {
+export async function gerarPdfOrdemLeitura(origemBytes: Uint8Array, entrada: EntradaProjeto, r: ResultadoMotor, opts: { marcas: boolean; sangria: number }): Promise<Uint8Array> {
   const origem = await carregar(origemBytes);
   const dest = await PDFDocument.create();
   const fontes = await prepararFontes(dest, origem);
@@ -284,7 +259,6 @@ export async function gerarPdfOrdemLeitura(origemBytes: Uint8Array, entrada: Ent
         });
       }
     }
-    if (opts.codigo && opts.codigo.pagina === i + 1) desenharCodigo(page, PH, opts.codigo.geometria, s + m + opts.codigo.x, s + m + opts.codigo.y, font);
     if (opts.marcas) {
       const x0 = s + m, y0 = s + m, L = 5, off = s + 1.5;
       const ln = (x1: number, y1: number, x2: number, y2: number) => page.drawLine({ start: { x: mmToPt(x1), y: mmToPt(PH - y1) }, end: { x: mmToPt(x2), y: mmToPt(PH - y2) }, thickness: 0.25, color: REG });
@@ -296,6 +270,106 @@ export async function gerarPdfOrdemLeitura(origemBytes: Uint8Array, entrada: Ent
   dest.setTitle(`${entrada.projeto.nome} — miolo em ordem de leitura`);
   dest.setSubject(`${r.versaoRegra} · ${r.hashEntrada}`);
   dest.setProducer(`Plataforma de Produção Editorial ${r.versaoMotor}`);
+  return dest.save();
+}
+
+/**
+ * PDF LADO A LADO, pronto para impressão (pares de impressão / "printer spreads").
+ * Cada página do PDF é uma face de folha dobrada com duas páginas do livro: no grampo canoa,
+ * N|1, 2|N−1, N−2|3, 4|N−3… (lado de fora e lado de dentro de cada folha, da externa para a interna).
+ * Imprimindo frente e verso e dobrando ao meio, o livro sai na ordem de leitura.
+ * Sangria só nas bordas externas; marcas de corte e de dobra; creep aplicado se configurado.
+ * modo 'leitura' gera duplas de leitura (1 · 2|3 · 4|5…) para revisão.
+ */
+export async function gerarPdfLadoALado(origemBytes: Uint8Array, entrada: EntradaProjeto, r: ResultadoMotor, opts: { sangria: number; modo: 'impressao' | 'leitura'; creepMmPorFolha?: number }): Promise<Uint8Array> {
+  const origem = await carregar(origemBytes);
+  const dest = await PDFDocument.create();
+  const fontes = await prepararFontes(dest, origem);
+  const font = await dest.embedFont(StandardFonts.Helvetica);
+  const W = entrada.formato.largura, Hp = entrada.formato.altura, s = opts.sangria, m = 10;
+  const PW = 2 * W + 2 * (s + m), PH = Hp + 2 * (s + m);
+  const faces: Array<{ esq: number; dir: number; rot: string; prof: number }> = [];
+  if (opts.modo === 'impressao') {
+    if (!r.pares.length) throw new Error('Resolva a paginação antes de gerar o arquivo lado a lado.');
+    for (const p of r.pares) {
+      if (p.solta) throw new Error('Este modelo usa folhas soltas: a gráfica recebe páginas individuais, não pares lado a lado.');
+      faces.push({ esq: p.fora[0], dir: p.fora[1], rot: `folha ${p.folha} · lado de fora`, prof: p.profundidade });
+      faces.push({ esq: p.dentro[0], dir: p.dentro[1], rot: `folha ${p.folha} · lado de dentro`, prof: p.profundidade });
+    }
+  } else {
+    for (const d of duplasDeLeituraMiolo(r.componentes.miolo.length, entrada.direcao)) faces.push({ esq: d[0], dir: d[1], rot: 'dupla de leitura', prof: 0 });
+  }
+  const total = r.componentes.miolo.length;
+  faces.forEach((f, i) => {
+    const page = dest.addPage([mmToPt(PW), mmToPt(PH)]);
+    page.setTrimBox(mmToPt(s + m), mmToPt(s + m), mmToPt(2 * W), mmToPt(Hp));
+    page.setBleedBox(mmToPt(m), mmToPt(m), mmToPt(2 * W + 2 * s), mmToPt(Hp + 2 * s));
+    const creep = opts.modo === 'impressao' ? (opts.creepMmPorFolha ?? 0) * f.prof : 0;
+    for (const [lado, pg] of [['e', f.esq], ['d', f.dir]] as const) {
+      if (!pg) continue;
+      const reg = r.componentes.miolo[pg - 1];
+      if (!reg || reg.tipo === 'branco' || !reg.origem) continue;
+      const fe = fonteDe(fontes, reg.origem);
+      if (!fe) continue;
+      const x = s + m + (lado === 'e' ? 0 : W);
+      desenharPagina(page, PH, fe, {
+        pagina: pg, unidade: 0, posicao: 0, face: 'F', rotacao: 0,
+        creep: { dx: lado === 'e' ? creep : -creep, dy: 0 },
+        corte: { x, y: s + m, w: W, h: Hp },
+        sangria: { l: lado === 'e' ? s : 0, r: lado === 'd' ? s : 0, t: s, b: s },
+      });
+    }
+    const x0 = s + m, y0 = s + m, L = 5, off = s + 1.5;
+    const ln = (x1: number, y1: number, x2: number, y2: number, dobra = false) => page.drawLine({ start: { x: mmToPt(x1), y: mmToPt(PH - y1) }, end: { x: mmToPt(x2), y: mmToPt(PH - y2) }, thickness: 0.25, color: REG, dashArray: dobra ? [2, 1.5] : undefined });
+    for (const x of [x0, x0 + 2 * W]) { ln(x, y0 - off - L, x, y0 - off); ln(x, y0 + Hp + off, x, y0 + Hp + off + L); }
+    for (const y of [y0, y0 + Hp]) { ln(x0 - off - L, y, x0 - off, y); ln(x0 + 2 * W + off, y, x0 + 2 * W + off + L, y); }
+    ln(x0 + W, y0 - off - L, x0 + W, y0 - off, true); ln(x0 + W, y0 + Hp + off, x0 + W, y0 + Hp + off + L, true);
+    const num = (n: number) => (n ? String(n) : '—');
+    page.drawText(`${entrada.projeto.nome} · ${num(f.esq)} | ${num(f.dir)} · ${f.rot} · ${i + 1}/${faces.length} · ${total} pp · ${SELO[r.nivel]}`, { x: mmToPt(2), y: mmToPt(1.5), size: 5, font, color: PRETO });
+  });
+  dest.setTitle(`${entrada.projeto.nome} — ${opts.modo === 'impressao' ? 'lado a lado para impressão' : 'duplas de leitura'}`);
+  dest.setSubject(`${r.versaoRegra} · ${r.hashEntrada}`);
+  dest.setProducer(`Plataforma de Produção Editorial ${r.versaoMotor}`);
+  return dest.save();
+}
+
+function duplasDeLeituraMiolo(N: number, dir: 'ltr' | 'rtl'): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const v = (a: number, b: number): [number, number] => (dir === 'rtl' ? [b, a] : [a, b]);
+  out.push(v(0, 1));
+  for (let p = 2; p <= N; p += 2) out.push(v(p, p + 1 <= N ? p + 1 : 0));
+  return out;
+}
+
+/** Documento de texto simples em PDF (ficha técnica, perguntas para a gráfica). */
+export async function gerarPdfTexto(titulo: string, blocos: Array<{ titulo?: string; linhas: string[] }>): Promise<Uint8Array> {
+  const dest = await PDFDocument.create();
+  const f = await dest.embedFont(StandardFonts.Helvetica);
+  const fb = await dest.embedFont(StandardFonts.HelveticaBold);
+  const A4 = [595.28, 841.89] as const;
+  const mx = 56, larg = A4[0] - 2 * mx;
+  const limpa = (t: string) => [...t.replace(/→/g, '->').replace(/−/g, '-').replace(/≈/g, '~').replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/µ/g, 'µ')]
+    .map((ch) => { try { f.encodeText(ch); return ch; } catch { return '?'; } }).join('');
+  let page = dest.addPage([...A4]);
+  let y = A4[1] - 64;
+  const nova = () => { page = dest.addPage([...A4]); y = A4[1] - 64; };
+  const escreve = (t: string, font: typeof f, size: number, rec = 0) => {
+    const palavras = limpa(t).split(' ');
+    let linha = '';
+    const flush = () => { if (y < 60) nova(); page.drawText(linha, { x: mx + rec, y, size, font, color: PRETO }); y -= size * 1.45; linha = ''; };
+    for (const p of palavras) {
+      const teste = linha ? `${linha} ${p}` : p;
+      if (font.widthOfTextAtSize(teste, size) > larg - rec && linha) { flush(); linha = p; } else linha = teste;
+    }
+    if (linha) flush();
+  };
+  escreve(titulo, fb, 16);
+  y -= 6;
+  for (const b of blocos) {
+    if (b.titulo) { y -= 8; escreve(b.titulo, fb, 11.5); }
+    for (const l of b.linhas) escreve(l, f, 10, l.startsWith('  ') ? 14 : 0);
+  }
+  dest.setTitle(titulo);
   return dest.save();
 }
 

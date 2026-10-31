@@ -16,6 +16,8 @@ export interface Constatacao {
   evidencia?: string;
   /** Sugestões de resolução (ex.: planos de cadernos). */
   opcoes?: string[];
+  /** Correção que a interface pode aplicar com um clique (com confirmação do usuário). */
+  acao?: { tipo: 'inserir_branco'; antesDe: string; quantidade: number; rotulo: string };
 }
 
 /** Regras locais de um caderno (sem simular): frente/verso consecutivos e soma na lombada. */

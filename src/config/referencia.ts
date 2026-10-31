@@ -48,7 +48,7 @@ export const PAPEIS_REFERENCIA: PapelPerfil[] = [
 
 /** Valores de referência que variam por modelo (sobrepõem o padrão do registro). */
 export const REFERENCIA_POR_MODELO: Partial<Record<ModeloId, Record<string, ValorParam>>> = {
-  grampo_canoa: { 'acabamento.canoa.maxPaginas': 64, 'creep.ativo': true, 'cadernos.tamanhos': [32, 16, 8, 4] },
+  grampo_canoa: { 'arquivo.entrega': 'lado_a_lado', 'acabamento.canoa.maxPaginas': 64, 'creep.ativo': true, 'cadernos.tamanhos': [32, 16, 8, 4] },
   grampo_lateral: { 'acabamento.furacao.margem': 10 },
   brochura_hotmelt: { 'acabamento.fresagem': 3, 'acabamento.lombada.acrescimo': 0.5, 'acabamento.vincoDobradica': 0, 'cadernos.tamanhos': [32, 16, 8] },
   brochura_pur: { 'acabamento.fresagem': 3, 'acabamento.lombada.acrescimo': 0.5, 'acabamento.vincoDobradica': 6, 'cadernos.tamanhos': [32, 16, 8] },

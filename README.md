@@ -7,7 +7,7 @@ visualização e geração dos arquivos finais. Requisitos: `docs/requisitos.htm
 
 ```bash
 npm install
-npm test              # 186 testes (referências clássicas, oráculo 3D, 3000 esquemas aleatórios, reconstrução física)
+npm test              # 182 testes (referências clássicas, oráculo 3D, 3000 esquemas aleatórios, reconstrução física)
 npm run demo          # livro infantil: gera out/ (PDF imposto, capa, ficha, mapa)
 npm run build:app     # dist/index.html (página completa, funciona offline) e dist/plataforma-editorial.html
 ```
@@ -30,7 +30,8 @@ reconhece páginas duplas (1 · 2|3 · 4|5…) e livretos já impostos (32|1 · 
 - `src/press` — layout de máquina (frente/verso, virada lateral, virada pela pinça, perfecting)
 - `src/cover` — calibre, lombada, creep, capas (canoa, brochura, capa dura, sobrecapa, folhetos)
 - `src/config` — registro de parâmetros, perfil da gráfica, padrão de mercado; precedência projeto > gráfica > padrão de mercado > pendente
-- `src/editorial` — ISBN/ISSN/ISMN, código de barras EAN-13 (GS1), normas editoriais (Lei 10.753/2003, ABNT NBR 6029 e 12225)
+- `src/editorial` — regras do ISBN e da ABNT (posição da ficha catalográfica, folha de rosto, capítulos, área do código de barras) com correção da paginação
+- `src/binding/pares.ts` — pares de impressão (arquivo lado a lado)
 - `src/engine.ts` — contrato de entrada/saída, versão da regra e hash
 - `src/pdf` — PDF imposto e capa planificada (pdf-lib)
 - `app/` — interface (consome apenas o resultado do motor)

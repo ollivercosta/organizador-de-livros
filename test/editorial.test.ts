@@ -1,109 +1,85 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { registrarPaginas } from '../src/binding/pagination.js';
-import { geometriaEan13, modulosComplemento, modulosEan13 } from '../src/editorial/codigoBarras.js';
-import { digitoEan13, validarIsbn, validarIsmn, validarIssn } from '../src/editorial/identificadores.js';
+import { inserirBrancos, registrarPaginas } from '../src/binding/pagination.js';
 import { executarMotor } from '../src/engine.js';
 import { pdfAmostra } from '../src/pdf/amostra.js';
-import { gerarPdfImposto, gerarPdfOrdemLeitura, inspecionarPdf } from '../src/pdf/impose.js';
+import { gerarPdfImposto, gerarPdfLadoALado, gerarPdfOrdemLeitura, inspecionarPdf } from '../src/pdf/impose.js';
 import { comBrancos, livroInfantil } from './fixtures.js';
 
 const AGORA = '2026-10-31T12:00:00.000Z';
 
-describe('identificadores', () => {
-  it('ISBN-13 válido (exemplo da norma ISO 2108: 978-0-306-40615-7)', () => {
-    const v = validarIsbn('978-0-306-40615-7');
-    expect(v.valido).toBe(true);
-    expect(v.ean13).toBe('9780306406157');
-    expect(v.exibicao).toBe('978-0-306-40615-7');
-  });
-  it('ISBN-13 com dígito errado é recusado e informa o esperado', () => {
-    const v = validarIsbn('9780306406158');
-    expect(v.valido).toBe(false);
-    expect(v.mensagens[0]).toMatch(/esperado 7/);
-  });
-  it('ISBN-10 0-306-40615-2 → ISBN-13 9780306406157', () => {
-    const v = validarIsbn('0-306-40615-2');
-    expect(v.valido).toBe(true);
-    expect(v.ean13).toBe('9780306406157');
-    expect(v.convertidoDeIsbn10).toBe(true);
-  });
-  it('979-0 é ISMN, não ISBN', () => {
-    expect(validarIsbn('9790060115615').valido).toBe(false);
-    expect(validarIsmn('979-0-060-11561-5').valido).toBe(true);
-  });
-  it('ISSN 0317-8471 → EAN 977031784700 + verificador', () => {
-    const v = validarIssn('0317-8471', '00');
-    expect(v.valido).toBe(true);
-    expect(v.ean13).toBe('977031784700' + digitoEan13('977031784700'));
-    expect(validarIssn('0317-8472').valido).toBe(false);
-  });
-});
+describe('regras editoriais (ISBN / ABNT NBR 6029)', () => {
+  const marcar = (paginas: ReturnType<typeof comBrancos>, rosto?: number, cred?: number, caps: number[] = []) =>
+    ({ temIsbn: true, paginas: { folhaRostoId: rosto ? paginas[rosto - 1]!.id : undefined, creditosId: cred ? paginas[cred - 1]!.id : undefined, capitulosIds: caps.map((c) => paginas[c - 1]!.id) } });
 
-/** Decodificador independente (tabelas escritas de novo) para conferir o codificador. */
-function decodificar(mods: string): string {
-  const Lt: Record<string, number> = { '0001101': 0, '0011001': 1, '0010011': 2, '0111101': 3, '0100011': 4, '0110001': 5, '0101111': 6, '0111011': 7, '0110111': 8, '0001011': 9 };
-  const Gt: Record<string, number> = { '0100111': 0, '0110011': 1, '0011011': 2, '0100001': 3, '0011101': 4, '0111001': 5, '0000101': 6, '0010001': 7, '0001001': 8, '0010111': 9 };
-  const Rt: Record<string, number> = { '1110010': 0, '1100110': 1, '1101100': 2, '1000010': 3, '1011100': 4, '1001110': 5, '1010000': 6, '1000100': 7, '1001000': 8, '1110100': 9 };
-  const prim: Record<string, number> = { LLLLLL: 0, LLGLGG: 1, LLGGLG: 2, LLGGGL: 3, LGLLGG: 4, LGGLLG: 5, LGGGLL: 6, LGLGLG: 7, LGLGGL: 8, LGGLGL: 9 };
-  expect(mods.length).toBe(95);
-  expect(mods.slice(0, 3)).toBe('101'); expect(mods.slice(45, 50)).toBe('01010'); expect(mods.slice(92)).toBe('101');
-  let par = ''; let dig = '';
-  for (let i = 0; i < 6; i++) { const ch = mods.slice(3 + i * 7, 10 + i * 7); if (ch in Lt) { par += 'L'; dig += Lt[ch]; } else { par += 'G'; dig += Gt[ch]; } }
-  for (let i = 0; i < 6; i++) dig += Rt[mods.slice(50 + i * 7, 57 + i * 7)];
-  return String(prim[par]) + dig;
-}
+  it('ficha catalográfica numa página ímpar: erro com correção "inserir branco antes"', () => {
+    const paginas = comBrancos(2);
+    const r = executarMotor(livroInfantil({ paginas, editorial: marcar(paginas, undefined, 3) }), AGORA);
+    const c = r.constatacoes.find((x) => x.codigo === 'EDI-002')!;
+    expect(c.severidade).toBe('erro');
+    expect(c.acao).toMatchObject({ tipo: 'inserir_branco', antesDe: paginas[2]!.id, quantidade: 1 });
+  });
 
-describe('código de barras EAN-13 (GS1)', () => {
-  it('codifica e decodifica 50 ISBNs aleatórios', () => {
-    let s = 7;
-    for (let k = 0; k < 50; k++) {
-      let doze = '978';
-      for (let i = 0; i < 9; i++) { s = (s * 1103515245 + 12345) >>> 0; doze += String(s % 10); }
-      const ean = doze + digitoEan13(doze);
-      expect(decodificar(modulosEan13(ean))).toBe(ean);
-    }
+  it('aplicar a correção leva a ficha para o verso (página par) e o erro some; a marcação segue a página', () => {
+    const paginas = comBrancos(2);
+    const ed = marcar(paginas, undefined, 3);
+    const r0 = executarMotor(livroInfantil({ paginas, editorial: ed }), AGORA);
+    const acao = r0.constatacoes.find((x) => x.codigo === 'EDI-002')!.acao!;
+    const idx = paginas.findIndex((p) => p.id === acao.antesDe);
+    const novas = inserirBrancos(paginas, 1, { tipo: 'apos_indice', indice: idx - 1 }, 'Ficha no verso da folha de rosto', 'teste', AGORA);
+    const r1 = executarMotor(livroInfantil({ paginas: novas, editorial: ed }), AGORA);
+    expect(r1.editorial.numeros.creditos).toBe(4);
+    expect(r1.constatacoes.some((x) => x.codigo === 'EDI-002')).toBe(false);
   });
-  it('tamanho nominal a 100%: 95 módulos de 0,33 mm + margens 11/7 = 37,29 mm', () => {
-    const g = geometriaEan13('9780306406157', 1);
-    expect(g.largura).toBeCloseTo(37.29, 2);
-    const g80 = geometriaEan13('9780306406157', 0.8);
-    expect(g80.largura).toBeCloseTo(37.29 * 0.8, 2);
-  });
-  it('complemento de 5 dígitos começa com 1011 e tem 47 módulos', () => {
-    const m = modulosComplemento('52495');
-    expect(m.startsWith('1011')).toBe(true);
-    expect(m.length).toBe(4 + 5 * 7 + 4 * 2);
-  });
-});
 
-describe('normas editoriais no motor', () => {
-  const base = { paginas: comBrancos(2) };
-  it('livro sem ISBN gera aviso de obrigatoriedade (Lei 10.753/2003)', () => {
-    const r = executarMotor(livroInfantil(base), AGORA);
-    expect(r.constatacoes.some((c) => c.codigo === 'ISBN-002')).toBe(true);
-  });
-  it('ISBN válido em autocapa: código posicionado na última página, junto à lombada, dentro da margem', () => {
-    const r = executarMotor(livroInfantil({ ...base, editorial: { identificador: { tipo: 'isbn', codigo: '978-0-306-40615-7' }, codigoBarras: { ampliacao: 1, posicao: 'inferior_direita', aplicarNaCapa: true }, paginas: {} } }), AGORA);
-    expect(r.editorial.posicao).toMatchObject({ alvo: 'pagina_miolo', pagina: 32 });
-    const g = r.editorial.codigo!;
-    expect(r.editorial.posicao!.x + g.largura).toBeLessThanOrEqual(160 - 5 + 1e-9);
-    expect(r.editorial.posicao!.y + g.altura).toBeCloseTo(230 - 5, 6);
-  });
-  it('brochura: código fora da faixa do vinco de dobradiça', () => {
-    const r = executarMotor(livroInfantil({ modelo: 'brochura_pur', paginas: registrarPaginas('m', 160), capa: { modelo: 'separada_flexivel', fonte: { fonte: 'arquivo_separado' } },
-      editorial: { identificador: { tipo: 'isbn', codigo: '978-0-306-40615-7' }, codigoBarras: { ampliacao: 1, posicao: 'inferior_direita', aplicarNaCapa: false }, paginas: {} } }, 0), AGORA);
-    const p4 = r.capa.planificacao!.paineis.find((p) => p.nome === '4ª capa')!;
-    const pos = r.editorial.posicao!;
-    expect(pos.x + r.editorial.codigo!.largura).toBeLessThanOrEqual(p4.x + p4.largura - 5 - 6 + 1e-9);
-  });
-  it('ampliação fora de 80–200% é erro; folha de rosto par e créditos fora do verso são erros', () => {
-    const r = executarMotor(livroInfantil({ ...base, editorial: { identificador: { tipo: 'isbn', codigo: '9780306406157' }, codigoBarras: { ampliacao: 0.6, posicao: 'inferior_direita', aplicarNaCapa: false }, paginas: { folhaRosto: 4, creditos: 7, capitulos: [9, 12] } } }), AGORA);
+  it('folha de rosto par e ficha fora do verso são erros; capítulo em página par é aviso', () => {
+    const paginas = comBrancos(2);
+    const r = executarMotor(livroInfantil({ paginas, editorial: marcar(paginas, 4, 7, [9, 12]) }), AGORA);
     const cods = r.constatacoes.map((c) => c.codigo);
-    expect(cods).toContain('COD-001');
     expect(cods).toContain('EDI-001');
     expect(cods).toContain('EDI-002');
     expect(r.constatacoes.find((c) => c.codigo === 'EDI-003')!.mensagem).toMatch(/12/);
+  });
+
+  it('folha de rosto ímpar com ficha no verso: sem erros', () => {
+    const paginas = comBrancos(2);
+    const r = executarMotor(livroInfantil({ paginas, editorial: marcar(paginas, 3, 4, [5]) }), AGORA);
+    expect(r.constatacoes.filter((c) => c.codigo.startsWith('EDI-00') && c.severidade !== 'nao_verificavel' && c.severidade !== 'info')).toEqual([]);
+  });
+
+  it('área recomendada para o código de barras da Agência: 4ª capa, junto à lombada, dentro da margem', () => {
+    const r = executarMotor(livroInfantil({ paginas: comBrancos(2) }), AGORA);
+    const a = r.editorial.areaCodigo!;
+    expect(a).toMatchObject({ alvo: 'pagina_miolo', pagina: 32 });
+    expect(a.x + a.w).toBeCloseTo(160 - 5, 6);
+    expect(a.y + a.h).toBeCloseTo(230 - 5, 6);
+  });
+});
+
+describe('pares de impressão (lado a lado)', () => {
+  it('grampo canoa 32 pp em 2 cadernos de 16: ordem de livreto 32|1, 2|31, 30|3 …, soma 33', () => {
+    const r = executarMotor(livroInfantil({ paginas: comBrancos(2) }), AGORA);
+    expect(r.pares.length).toBe(8);
+    const seq = r.pares.flatMap((p) => [p.fora, p.dentro]);
+    const esperado: Array<[number, number]> = [];
+    for (let j = 0; j < 8; j++) { esperado.push([32 - 2 * j, 1 + 2 * j]); esperado.push([2 + 2 * j, 31 - 2 * j]); }
+    expect(seq).toEqual(esperado);
+    expect(r.pares.map((p) => p.profundidade)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+  it('RTL inverte a ordem visual', () => {
+    const r = executarMotor(livroInfantil({ paginas: comBrancos(2), direcao: 'rtl' }), AGORA);
+    expect(r.pares[0]!.fora).toEqual([1, 32]);
+  });
+  it('PDF lado a lado: 2 faces por folha dobrada, largura = 2 páginas + sangria + marcas', async () => {
+    const bytes = await pdfAmostra(30, 160, 230, 3);
+    const e = livroInfantil({ paginas: comBrancos(2) });
+    const r = executarMotor(e, AGORA);
+    const doc = await PDFDocument.load(await gerarPdfLadoALado(bytes, e, r, { sangria: 3, modo: 'impressao', creepMmPorFolha: 0.1 }));
+    expect(doc.getPageCount()).toBe(16);
+    const t = doc.getPage(0).getTrimBox();
+    expect(t.width * 25.4 / 72).toBeCloseTo(320, 3);
+    const leitura = await PDFDocument.load(await gerarPdfLadoALado(bytes, e, r, { sangria: 3, modo: 'leitura' }));
+    expect(leitura.getPageCount()).toBe(17);
   });
 });
 
