@@ -1,0 +1,23 @@
+{
+  "name": "plataforma-editorial",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Plataforma de Produção Editorial e Gráfica — motor de imposição, configuração de gráfica e protótipo",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build:app": "tsx scripts/build-app.ts",
+    "demo": "tsx scripts/demo-livro-infantil.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.25.12",
+    "tsx": "^4.23.15",
+    "typescript": "5.9",
+    "vitest": "3.2"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}
